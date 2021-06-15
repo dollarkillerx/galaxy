@@ -21,7 +21,7 @@ Galaxy High performance MySQL CDC
 ``` 
 type Task struct {
 	TaskID      string   `json:"task_id"`
-	MySQLUri    string   `json:"my_sql_uri"` // user:password@ip:port
+	MySQLUri    string   `json:"mysql_uri"` // user:password@ip:port
 	Database    string   `json:"database"`
 	Tables      []string `json:"tables"` // default: all table
 	ShieldTable []string `json:"shield_table"`
