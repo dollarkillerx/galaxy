@@ -24,6 +24,8 @@ func (s *Sync) tableSchema(db string, table string) ([]pkg.MySQLSchema, error) {
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
+
+		schemas = append(schemas, schema)
 	}
 
 	return schemas, nil

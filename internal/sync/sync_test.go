@@ -27,4 +27,11 @@ func TestSync(t *testing.T) {
 		log.Fatalln(err)
 	}
 	fmt.Println(pos)
+
+	schema, err := sync.tableSchema("news", "gorm_client_store_items")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println(schema)
 }

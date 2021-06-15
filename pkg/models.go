@@ -11,11 +11,11 @@ type MySQLStatus struct {
 type MySQLSchema struct {
 	Field      string
 	Type       string
-	Collation  string
+	Collation  *string
 	Null       string
-	Key        string
+	Key        *string
 	Default    *string
-	Extra      string
+	Extra      *string
 	Privileges string
-	Comment    string
+	Comment    *string
 }
