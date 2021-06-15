@@ -1,24 +1,5 @@
-# Galaxy
-Galaxy High performance MySQL CDC
+package pkg
 
-![](./doc/l1.png)
-
-### Features
-- [ ] Infrastructure
-- [ ] Kafka
-- [ ] NSQ
-- [ ] Monitorable   
-- [ ] Recovery synchronization
-- [ ] Pause synchronization
-- [ ] Latest synchronization
-
-
-### depend
-- github.com/go-mysql-org/go-mysql
-
-### use
-- new cdc task:
-``` 
 type Task struct {
 	TaskID      string   `json:"task_id"`
 	MySQLUri    string   `json:"my_sql_uri"` // user:password@ip:port
@@ -32,4 +13,3 @@ type Task struct {
 	MongoDBConf *MongoDBConf `json:"mongo_db_conf"`
 	ESConf      *ESConf      `json:"es_conf"`
 }
-```
