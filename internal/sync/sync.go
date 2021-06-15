@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+// TODO： 退出模块设计
+
 // 同步模块
 type Sync struct {
 	BaseData     *pkg.TaskBaseData
@@ -48,6 +50,10 @@ func (s *Sync) Monitor() error {
 
 	var pos mysql.Position
 	var err error
+	// 使用最新值
+	if s.BaseData.StartTime == 1 {
+		s.BaseData.PositionPos = 1
+	}
 	if s.BaseData.PositionPos != 0 {
 		pos, err = s.tryPosition(s.BaseData.PositionName, s.BaseData.PositionPos)
 		if err != nil {
@@ -92,7 +98,30 @@ func (s *Sync) Monitor() error {
 				action = canal.UpdateAction
 			}
 
-			action = action
+			if event.Event != nil {
+				if s.BaseData.StartTime != 0 {
+					if event.Header.Timestamp < s.BaseData.StartTime {
+						continue
+					}
+				}
+
+				ex1, ok := event.Event.(*replication.RowsEvent)
+				if ok {
+					fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d  \n", event.Header.LogPos, event.Header.Timestamp, ex1.Table.Table, action, ex1.Table.TableID)
+				}
+
+				ex2, ok := event.Event.(*replication.TableMapEvent)
+				if ok {
+					fmt.Printf("LogPos: %d Schema: %s TableID: %d \n", event.Header.LogPos, ex2.Schema, ex2.TableID)
+				}
+
+				ex3, ok := event.Event.(*replication.QueryEvent)
+				if ok {
+					// TODO: 添加对模型更新
+					// ALTER TABLE oauth.gorm_client_store_items MODIFY
+					fmt.Printf("Query: %s\n", ex3.Query)
+				}
+			}
 		}
 	}
 
