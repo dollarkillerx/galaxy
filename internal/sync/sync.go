@@ -51,23 +51,22 @@ func (s *Sync) Monitor() error {
 	var pos mysql.Position
 	var err error
 	// 使用最新值
-	if s.BaseData.StartTime == 1 {
+	if s.BaseData.StartTime == 0 {
 		s.BaseData.PositionPos = 1
 	}
-	if s.BaseData.PositionPos != 0 {
-		pos, err = s.tryPosition(s.BaseData.PositionName, s.BaseData.PositionPos)
-		if err != nil {
-			return err
-		}
-	} else if s.BaseData.PositionPos == 1 { // 使用最新的
+	if s.BaseData.PositionPos == 1 { // 使用最新的
 		pos, err = s.GetMasterPos()
 		if err != nil {
 			return err
 		}
-	} else { // 从0开始
+	} else if s.BaseData.PositionPos != 0 { // 使用设定值
+		pos, err = s.tryPosition(s.BaseData.PositionName, s.BaseData.PositionPos)
+		if err != nil {
+			return err
+		}
+	} else { // 重0开始
 		pos = mysql.Position{}
 	}
-
 	s.BaseData.PositionName = pos.Name
 	s.BaseData.PositionPos = pos.Pos
 	sync, err := s.binlogSyncer.StartSync(pos)
@@ -110,11 +109,13 @@ func (s *Sync) Monitor() error {
 					fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d  \n", event.Header.LogPos, event.Header.Timestamp, ex1.Table.Table, action, ex1.Table.TableID)
 				}
 
+				// 定义Schema 和 TableID 关系
 				ex2, ok := event.Event.(*replication.TableMapEvent)
 				if ok {
 					fmt.Printf("LogPos: %d Schema: %s TableID: %d \n", event.Header.LogPos, ex2.Schema, ex2.TableID)
 				}
 
+				// 当模型schema更新时会调用当前
 				ex3, ok := event.Event.(*replication.QueryEvent)
 				if ok {
 					// TODO: 添加对模型更新
@@ -138,7 +139,7 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 	}
 
 	_, err = sync.GetEvent(context.Background())
-
+	// master.000005, bin.000737
 	return mysql.Position{}, err
 }
 

@@ -12,9 +12,9 @@ type TaskBaseData struct {
 	TaskID      string      `json:"task_id"`
 	MySqlConfig MySQLConfig `json:"mysql_config"`
 	Database    string      `json:"database"`
-	Tables      []string    `json:"tables"` // default: all table
-	ShieldTable []string    `json:"shield_table"`
-	StartTime   uint32      `json:"start_time"` // default: Starting from 0  , Use the latest: 1
+	Tables      []string    `json:"tables"`       // default: all table
+	ShieldTable []string    `json:"shield_table"` // 禁用table
+	StartTime   uint32      `json:"start_time"`   // default: Use the latest
 
 	ServerID     uint32 `json:"-"`
 	PositionName string `json:"-"`

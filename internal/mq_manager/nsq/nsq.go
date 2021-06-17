@@ -13,6 +13,6 @@ func (N *NSQ) SendMSG(event pkg.MQEvent) error {
 	panic("implement me")
 }
 
-func (N *NSQ) Close() {
+func (N *NSQ) Close() error {
 	panic("implement me")
 }

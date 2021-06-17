@@ -5,5 +5,5 @@ import "github.com/dollarkillerx/galaxy/pkg"
 type MQ interface {
 	InitMQ(cfg pkg.Task) error
 	SendMSG(event pkg.MQEvent) error
-	Close()
+	Close() error
 }

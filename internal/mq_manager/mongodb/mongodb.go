@@ -13,6 +13,6 @@ func (m *MongoDB) SendMSG(event pkg.MQEvent) error {
 	panic("implement me")
 }
 
-func (m *MongoDB) Close() {
+func (m *MongoDB) Close() error {
 	panic("implement me")
 }

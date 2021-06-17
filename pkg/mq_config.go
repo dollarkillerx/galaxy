@@ -3,6 +3,11 @@ package pkg
 // BaseConfig
 
 type KafkaConf struct {
+	EnableSASL bool     `json:"enable_sasl"`
+	Brokers    []string `json:"brokers"`
+	User       string   `json:"user"`
+	Password   string   `json:"password"`
+	Topic      string   `json:"topic"`
 }
 
 type NsqConf struct {
@@ -17,11 +22,12 @@ type ESConf struct {
 // MQEvent
 
 type MQEvent struct {
-	Table       *Task           `json:"table"`
+	Table       *Table          `json:"table"`
 	Action      string          `json:"action"`
-	JSONRow     string          `json:"json_row"`
+	After       []interface{}   `json:"after"`
+	Before      []interface{}   `json:"before"`
 	OrgRow      [][]interface{} `json:"org_row"`
-	EventHeader string          `json:"event_header"`
+	EventHeader EventHeader     `json:"event_header"`
 }
 
 type Table struct {

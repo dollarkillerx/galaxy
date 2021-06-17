@@ -13,6 +13,6 @@ func (E *ES) SendMSG(event pkg.MQEvent) error {
 	panic("implement me")
 }
 
-func (E *ES) Close() {
+func (E *ES) Close() error {
 	panic("implement me")
 }
