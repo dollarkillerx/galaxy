@@ -67,3 +67,18 @@ func (m *manager) Get(taskID string) (MQ, error) {
 
 	return mq, nil
 }
+
+func (m *manager) Close(taskID string) error {
+	mq, ex := m.mq[taskID]
+	if !ex {
+		return errors.New(fmt.Sprintf("not exits: %s", taskID))
+	}
+
+	err := mq.Close()
+	if err != nil {
+		return err
+	}
+
+	delete(m.mq, taskID)
+	return nil
+}

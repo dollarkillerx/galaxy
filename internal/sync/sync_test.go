@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"context"
 	"github.com/dollarkillerx/galaxy/pkg"
+	"time"
 
 	"fmt"
 	"log"
@@ -34,4 +36,23 @@ func TestSync(t *testing.T) {
 	}
 
 	fmt.Println(schema)
+}
+
+func TestPx(t *testing.T) {
+	cancel, cancelFunc := context.WithCancel(context.Background())
+
+	go func() {
+		time.Sleep(time.Second * 3)
+		cancelFunc()
+	}()
+
+loop:
+	for {
+		select {
+		case <-cancel.Done():
+			break loop
+		default:
+			fmt.Println("hello world")
+		}
+	}
 }

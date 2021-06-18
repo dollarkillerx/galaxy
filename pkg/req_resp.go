@@ -15,10 +15,6 @@ type TaskBaseData struct {
 	Tables      []string    `json:"tables"`       // default: all table
 	ShieldTable []string    `json:"shield_table"` // 禁用table
 	StartTime   uint32      `json:"start_time"`   // default: Use the latest
-
-	ServerID     uint32 `json:"-"`
-	PositionName string `json:"-"`
-	PositionPos  uint32 `json:"-"`
 }
 
 type MySQLConfig struct {
