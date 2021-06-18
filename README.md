@@ -3,7 +3,7 @@ Galaxy High performance MySQL CDC
 
 ![](./doc/l1.png)
 
-### Features
+## Features
 - [ ] Infrastructure
 - [ ] Kafka
 - [ ] NSQ
@@ -13,11 +13,11 @@ Galaxy High performance MySQL CDC
 - [ ] Latest synchronization
 
 
-### depend
+## depend
 - github.com/go-mysql-org/go-mysql
 
-### use
-####  mysql configure
+## use
+###  mysql configure
 Server Config: Ensure server_id is set, and that row-based replication is on.
 ``` 
 $ vi /etc/mysql/my.cnf

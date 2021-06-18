@@ -60,17 +60,14 @@ loop:
 			if !ex {
 				break loop
 			}
-			if event.Table == nil {
-				continue
-			}
 			marshal, err := json.Marshal(event)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
 			_, _, err = k.producer.SendMessage(&sarama.ProducerMessage{
-				Topic: fmt.Sprintf("%d.%s.%s", k.cfg.TaskID, event.Table.Database, event.Table),
-				Key:   sarama.ByteEncoder(fmt.Sprintf("%s.%s", event.Table.Database, event.Table)),
+				Topic: fmt.Sprintf("%s.%s.%s", k.cfg.TaskID, event.Database, event.Table),
+				Key:   sarama.ByteEncoder(fmt.Sprintf("%s.%s", event.Database, event.Table)),
 				Value: sarama.ByteEncoder(marshal),
 			})
 			if err != nil {

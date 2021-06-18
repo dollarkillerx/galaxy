@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"encoding/json"
+	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -19,11 +21,14 @@ import (
 
 // TODO： 退出模块设计
 
-// 同步模块
+// Sync 同步模块
 type Sync struct {
 	sharedSync   *pkg.SharedSync
 	db           *sql.DB
 	binlogSyncer *replication.BinlogSyncer
+	mq           mq_manager.MQ
+
+	tableMap map[string]uint64
 }
 
 func New(sharedSync *pkg.SharedSync) (*Sync, error) {
@@ -75,6 +80,12 @@ func (s *Sync) Monitor() error {
 		return errors.WithStack(err)
 	}
 
+	//mq, err := mq_manager.Manager.Get(s.sharedSync.Task.TaskID)
+	//if err != nil {
+	//	return errors.WithStack(err)
+	//}
+	//s.mq = mq
+
 	go func() {
 	loop:
 		for {
@@ -86,6 +97,9 @@ func (s *Sync) Monitor() error {
 				}
 				break loop
 			default:
+				if s.sharedSync.StopSync {
+					continue
+				}
 				err := s.syncMySQL(sync)
 				if err != nil {
 					log.Println(err)
@@ -111,16 +125,6 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 	}
 
 	if event.Header != nil {
-		var action string
-		switch event.Header.EventType {
-		case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
-			action = canal.InsertAction
-		case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
-			action = canal.DeleteAction
-		case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
-			action = canal.UpdateAction
-		}
-
 		if event.Event != nil {
 			if s.sharedSync.Task.StartTime != 0 {
 				if event.Header.Timestamp < s.sharedSync.Task.StartTime {
@@ -128,23 +132,59 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 				}
 			}
 
-			ex1, ok := event.Event.(*replication.RowsEvent)
-			if ok {
-				fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d  \n", event.Header.LogPos, event.Header.Timestamp, ex1.Table.Table, action, ex1.Table.TableID)
+			var action string
+			switch event.Header.EventType {
+			case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+				action = canal.InsertAction
+			case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
+				action = canal.DeleteAction
+			case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
+				action = canal.UpdateAction
 			}
 
-			// 定义Schema 和 TableID 关系
-			ex2, ok := event.Event.(*replication.TableMapEvent)
+			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
-				fmt.Printf("LogPos: %d Schema: %s TableID: %d \n", event.Header.LogPos, ex2.Schema, ex2.TableID)
+				if string(rowsEvent.Table.Schema) == "xxx" {
+					return nil
+				}
+
+				fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d Schema: %s  \n", event.Header.LogPos, event.Header.Timestamp, rowsEvent.Table.Table, action, rowsEvent.Table.TableID, rowsEvent.Table.Schema)
+				if rowsEvent.Table == nil {
+					return nil
+				}
+				fmt.Println(rowsEvent.Table.ColumnName)
+				for k, v := range rowsEvent.Table.ColumnName {
+					fmt.Println(k, string(v))
+				}
+
+				fmt.Println("schema: ", string(rowsEvent.Table.Schema))
+				fmt.Println("table: ", string(rowsEvent.Table.Table))
+				marshal, err := json.Marshal(rowsEvent.Rows)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(marshal))
+				//err := s.mq.SendMSG(pkg.MQEvent{
+				//	Database: string(rowsEvent.Table.Schema),
+				//	Table:    string(rowsEvent.Table.Table),
+				//	Action:   action,
+				//	OrgRow:   rowsEvent.Rows,
+				//	EventHeader: pkg.EventHeader{
+				//		Timestamp: event.Header.Timestamp,
+				//		LogPos:    event.Header.LogPos,
+				//	},
+				//})
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
 
 			// 当模型schema更新时会调用当前
-			ex3, ok := event.Event.(*replication.QueryEvent)
+			queryEvent, ok := event.Event.(*replication.QueryEvent)
 			if ok {
 				// TODO: 添加对模型更新
 				// ALTER TABLE oauth.gorm_client_store_items MODIFY
-				fmt.Printf("Query: %s\n", ex3.Query)
+				fmt.Printf("Query: %s\n", queryEvent.Query)
 			}
 		}
 	}
@@ -193,6 +233,11 @@ func (s *Sync) connMysql() error {
 	return nil
 }
 
+// getTableInfo 获取Table基本数据结构
+func (s *Sync) getTableInfo(schema string, table string) []string {
+	return nil
+}
+
 func (s *Sync) close() error {
 	err := s.db.Close()
 	if err != nil {
@@ -200,5 +245,6 @@ func (s *Sync) close() error {
 	}
 
 	s.binlogSyncer.Close()
+	s.mq.Close()
 	return nil
 }

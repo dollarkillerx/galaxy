@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// 数据共享结构 服务状态同步
+// SharedSync 数据共享结构 服务状态同步
 type SharedSync struct {
 	Rw           sync.RWMutex       `json:"-"`         // 使用场景 读多写少 多任务进行变更
 	Task         *Task              `json:"-"`         // 任务更新同步

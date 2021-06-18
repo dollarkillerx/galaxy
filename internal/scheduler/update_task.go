@@ -74,9 +74,11 @@ func (s *scheduler) updateTask(ctx *gin.Context) {
 			ctx.JSON(401, pkg.ParameterError)
 			return
 		}
+
+		task.Task.Database = update.Database
+		task.Task.Tables = update.Tables
+		task.Task.ExcludeTable = update.ExcludeTable
 	}
 
-	task.Task.Database = update.Database
-	task.Task.Tables = update.Tables
-	task.Task.ExcludeTable = update.ExcludeTable
+	ctx.JSON(200, pkg.StandardReturn{Message: "Update Success"})
 }

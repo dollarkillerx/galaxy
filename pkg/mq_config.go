@@ -22,18 +22,13 @@ type ESConf struct {
 // MQEvent
 
 type MQEvent struct {
-	Table       *Table          `json:"table"`
-	Action      string          `json:"action"`
-	After       []interface{}   `json:"after"`
-	Before      []interface{}   `json:"before"`
-	OrgRow      [][]interface{} `json:"org_row"`
-	EventHeader EventHeader     `json:"event_header"`
-}
-
-type Table struct {
-	Database string `json:"database"`
-	Table    string `json:"table"`
-	Rows     string `json:"rows"`
+	Database    string                      `json:"database"`
+	Table       string                      `json:"table"`
+	Action      string                      `json:"action"`
+	After       map[interface{}]interface{} `json:"after"`
+	Before      map[interface{}]interface{} `json:"before"`
+	OrgRow      [][]interface{}             `json:"org_row"`
+	EventHeader EventHeader                 `json:"event_header"`
 }
 
 type EventHeader struct {
