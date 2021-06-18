@@ -3,3 +3,6 @@ build:
 
 upx:
 	upx cmd/galaxy
+
+run_test:
+	go run cmd/main.go

@@ -21,6 +21,11 @@ var Manager = manager{
 
 // TODO: 处理重复问题
 func (m *manager) Register(task pkg.Task) error {
+	_, ex := m.mq[task.TaskBaseData.TaskID]
+	if ex {
+		return errors.New("Task ID already exists")
+	}
+
 	switch {
 	case task.KafkaConf != nil:
 		kfk := kafka.Kafka{}
@@ -54,6 +59,8 @@ func (m *manager) Register(task pkg.Task) error {
 		}
 
 		m.mq[task.TaskBaseData.TaskID] = &e
+	default:
+		return errors.New("MQ CONFIG ERROR")
 	}
 
 	return nil

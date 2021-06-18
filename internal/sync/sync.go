@@ -75,23 +75,25 @@ func (s *Sync) Monitor() error {
 		return errors.WithStack(err)
 	}
 
-loop:
-	for {
-		select {
-		case <-s.sharedSync.Context.Done():
-			err := s.close()
-			if err != nil {
-				log.Println(err)
-			}
-			break loop
-		default:
-			err := s.syncMySQL(sync)
-			if err != nil {
-				log.Println(err)
-				continue
+	go func() {
+	loop:
+		for {
+			select {
+			case <-s.sharedSync.Context.Done():
+				err := s.close()
+				if err != nil {
+					log.Println(err)
+				}
+				break loop
+			default:
+				err := s.syncMySQL(sync)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 			}
 		}
-	}
+	}()
 
 	return nil
 }

@@ -7,6 +7,6 @@ type conf struct {
 var Conf *conf
 
 func InitConfig() error {
-	Conf = &conf{}
+	Conf = &conf{ListenAddr: "0.0.0.0:8089"}
 	return nil
 }
