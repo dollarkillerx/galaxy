@@ -2,6 +2,7 @@ package sync
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
+	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -85,6 +86,12 @@ func (s *Sync) Monitor() error {
 	//	return errors.WithStack(err)
 	//}
 	//s.mq = mq
+	// TODO: Del
+	storage.Storage.Test()
+	_, err = s.tableSchema("test", "casbin_rule")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	go func() {
 	loop:
@@ -185,6 +192,7 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			if ok {
 				// TODO: 添加对模型更新
 				if queryEvent.ErrorCode == 0 {
+					fmt.Println("updateSchema")
 					err := s.updateSchema(string(queryEvent.Schema), string(queryEvent.Query))
 					if err != nil {
 						log.Printf("%+v\n", err)

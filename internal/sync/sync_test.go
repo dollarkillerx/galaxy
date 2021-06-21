@@ -15,6 +15,8 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	log.SetFlags(log.Llongfile | log.LstdFlags)
+
 	sync, err := New(&pkg.SharedSync{
 		ServerID: 10120,
 		Task: &pkg.Task{

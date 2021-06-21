@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -54,6 +55,20 @@ func (s *storage) Get(key string) (value []byte, err error) {
 	})
 }
 
+func (s *storage) Del(key string) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte(key))
+	})
+}
+
+var once sync.Once
+
+func (s *storage) Test() {
+	s.Del(getSchemaID("test", "casbin_rule"))
+	//s.GetSchemasByTable("test", "casbin_rule")
+	log.Println("init tes success")
+}
+
 // GetSchemasByTable 获取 HistorySchemas
 func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchemas, error) {
 	resp, err := s.Get(getSchemaID(db, table))
@@ -67,6 +82,11 @@ func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchema
 		return nil, errors.WithStack(err)
 	}
 
+	marshal, err := json.Marshal(historySchemas)
+	if err == nil {
+		fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
+	}
+
 	return &historySchemas, nil
 }
 
@@ -77,6 +97,8 @@ func (s *storage) UpdateSchema(db string, table string, schema pkg.HistorySchema
 	if err != nil {
 		return errors.WithStack(err)
 	}
+
+	fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
 
 	return s.SetNX(id, marshal, 0)
 }

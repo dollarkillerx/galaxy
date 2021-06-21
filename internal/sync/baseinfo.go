@@ -96,12 +96,13 @@ func (s *Sync) initSchema(db string, table string) (*pkg.HistorySchemas, error) 
 }
 
 func (s *Sync) updateSchema(schema string, query string) (err error) {
+	fmt.Println(query)
 	if query == "BEGIN" {
 		return nil
 	}
-
+	bakQuery := strings.ToLower(query)
 	alterTable := "alter table"
-	index := strings.Index(query, alterTable)
+	index := strings.Index(bakQuery, alterTable)
 	if index == -1 {
 		return nil
 	}
@@ -114,12 +115,12 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 
 	query = strings.TrimSpace(query[index:])
 	qKv := strings.Split(query, " ")
-
 	table := qKv[2]
-	action := qKv[3]
+	action := strings.ToLower(qKv[3])
 
 	if strings.Index(table, ".") != -1 {
 		split := strings.Split(table, ".")
+		schema = split[0]
 		table = split[1]
 	}
 
@@ -129,8 +130,9 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 
 	byTable, err := storage.Storage.GetSchemasByTable(schema, table)
 	if err != nil {
-		byTable, err = s.initSchema(schema, table)
+		byTable, err = s.tableSchema(schema, table)
 		if err != nil {
+			log.Println(err, "  ", schema, "  ", table)
 			return err
 		}
 	}
@@ -141,22 +143,19 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 	switch action {
 	case "drop":
 		delCol := ""
-		if qKv[4] == "column" {
+		if strings.ToLower(qKv[4]) == "column" {
 			delCol = qKv[5]
 		} else {
 			delCol = qKv[4]
 		}
 
 		var newCol []pkg.Columns
-		for i, v := range byTable.Deltas.Def.Columns {
-			// TODO: TEST
+		for _, v := range byTable.Deltas.Def.Columns {
 			if delCol == v.Name {
-				if i == len(byTable.Deltas.Def.Columns)-1 {
-					newCol = append(newCol[:i])
-				} else {
-					newCol = append(newCol[:i], newCol[i+1:]...)
-				}
+				continue
 			}
+
+			newCol = append(newCol, v)
 		}
 
 		old := byTable.Deltas.Def
@@ -171,21 +170,28 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 		}
 	case "add":
 		delCol := ""
-		if qKv[4] == "column" {
+		if strings.ToLower(qKv[4]) == "column" {
 			delCol = qKv[5]
 		} else {
 			delCol = qKv[4]
 		}
 
+		// 如果存在 则 不再添加
+		for _, v := range byTable.Deltas.Def.Columns {
+			if v.Name == delCol {
+				return nil
+			}
+		}
+
 		tvEnd := qKv[len(qKv)-1]
 
 		var newCol []pkg.Columns
-		if tvEnd == "first" { // 如果在最前面
+		if strings.ToLower(tvEnd) == "first" { // 如果在最前面
 			newCol = append(newCol, pkg.Columns{
 				Name: delCol,
 			})
 			newCol = append(newCol, byTable.Deltas.Def.Columns...)
-		} else if qKv[len(qKv)-2] == "after" { // 放在什么什么的后面
+		} else if strings.ToLower(qKv[len(qKv)-2]) == "after" { // 放在什么什么的后面
 			for _, v := range byTable.Deltas.Def.Columns {
 				newCol = append(newCol, v)
 				if v.Name == tvEnd {
