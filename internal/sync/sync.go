@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"encoding/json"
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/go-mysql-org/go-mysql/canal"
@@ -12,6 +11,7 @@ import (
 
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -123,8 +123,9 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 		fmt.Printf("Get event error: %v\n", errors.ErrorStack(err))
 		return err
 	}
-
+	//event.Dump(os.Stdout)
 	if event.Header != nil {
+
 		if event.Event != nil {
 			if s.sharedSync.Task.StartTime != 0 {
 				if event.Header.Timestamp < s.sharedSync.Task.StartTime {
@@ -144,7 +145,7 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 
 			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
-				if string(rowsEvent.Table.Schema) == "xxx" {
+				if string(rowsEvent.Table.Schema) == "maxwell" || string(rowsEvent.Table.Table) == "china_saic_registration_records" {
 					return nil
 				}
 
@@ -179,12 +180,24 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 				}
 			}
 
-			// 当模型schema更新时会调用当前
+			// TODO: 修改模型schema 当模型schema更新时会调用当前
 			queryEvent, ok := event.Event.(*replication.QueryEvent)
 			if ok {
 				// TODO: 添加对模型更新
+				if queryEvent.ErrorCode == 0 {
+					err := s.updateSchema(string(queryEvent.Schema), string(queryEvent.Query))
+					if err != nil {
+						log.Printf("%+v\n", err)
+					}
+				}
+			}
+
+			// TODO: 处理offset
+			offsetEvent, ok := event.Event.(*replication.RotateEvent)
+			if ok {
+				// TODO: 添加对模型更新
 				// ALTER TABLE oauth.gorm_client_store_items MODIFY
-				fmt.Printf("Query: %s\n", queryEvent.Query)
+				fmt.Printf("Query: %s\n", offsetEvent.NextLogName)
 			}
 		}
 	}
@@ -230,11 +243,6 @@ func (s *Sync) connMysql() error {
 	}
 
 	s.db = db
-	return nil
-}
-
-// getTableInfo 获取Table基本数据结构
-func (s *Sync) getTableInfo(schema string, table string) []string {
 	return nil
 }
 

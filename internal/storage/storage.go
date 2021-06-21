@@ -1,11 +1,14 @@
 package storage
 
 import (
-	"github.com/dgraph-io/badger/v3"
-	"github.com/pingcap/errors"
-
+	"encoding/json"
+	"fmt"
 	"log"
 	"time"
+
+	"github.com/dgraph-io/badger/v3"
+	"github.com/dollarkillerx/galaxy/pkg"
+	"github.com/pingcap/errors"
 )
 
 type storage struct {
@@ -49,4 +52,35 @@ func (s *storage) Get(key string) (value []byte, err error) {
 			return nil
 		})
 	})
+}
+
+// GetSchemasByTable 获取 HistorySchemas
+func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchemas, error) {
+	resp, err := s.Get(getSchemaID(db, table))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var historySchemas pkg.HistorySchemas
+	err = json.Unmarshal(resp, &historySchemas)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return &historySchemas, nil
+}
+
+// UpdateSchema 获取 更新 UpdateSchema
+func (s *storage) UpdateSchema(db string, table string, schema pkg.HistorySchemas) error {
+	id := getSchemaID(db, table)
+	marshal, err := json.Marshal(schema)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	return s.SetNX(id, marshal, 0)
+}
+
+func getSchemaID(db string, table string) string {
+	return fmt.Sprintf("scheam.%s.%s", db, table)
 }
