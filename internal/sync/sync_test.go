@@ -3,15 +3,15 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/pingcap/errors"
-	"log"
-	"strings"
-	"time"
-
-	"fmt"
-	"testing"
 )
 
 func TestSync(t *testing.T) {
@@ -268,3 +268,18 @@ func updateSchema(schema string, query string) (err error) {
 
 	return nil
 }
+
+//func TestTreetMap(t *testing.T) {
+//	comparator := treemap.NewWithIntComparator()
+//	comparator.Put("a", "helloworld")
+//	comparator.Put("a1", "helloworld1")
+//	comparator.Put("a2", "helloworld2")
+//	comparator.Put("a4", "helloworld3")
+//	comparator.Put("a5", "helloworld4")
+//	comparator.Put("a6", "helloworld5")
+//
+//	marshal, err := json.Marshal(comparator)
+//	if err == nil {
+//		fmt.Println(string(marshal))
+//	}
+//}

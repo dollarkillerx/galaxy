@@ -2,7 +2,6 @@ package sync
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
-	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -74,6 +73,10 @@ func (s *Sync) Monitor() error {
 	} else { // 重0开始
 		pos = mysql.Position{}
 	}
+
+	// TODO: DEL
+	pos.Name = "master.000006"
+	pos.Pos = 107307
 	s.sharedSync.PositionName = pos.Name
 	s.sharedSync.PositionPos = pos.Pos
 	sync, err := s.binlogSyncer.StartSync(pos)
@@ -87,11 +90,11 @@ func (s *Sync) Monitor() error {
 	//}
 	//s.mq = mq
 	// TODO: Del
-	storage.Storage.Test()
-	_, err = s.tableSchema("test", "casbin_rule")
-	if err != nil {
-		log.Fatalln(err)
-	}
+	//storage.Storage.Test()
+	//_, err = s.tableSchema("test", "casbin_rule")
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
 
 	go func() {
 	loop:
@@ -152,6 +155,8 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 
 			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
+				schema := string(rowsEvent.Table.Schema)
+				table := string(rowsEvent.Table.Table)
 				if string(rowsEvent.Table.Schema) == "maxwell" || string(rowsEvent.Table.Table) == "china_saic_registration_records" {
 					return nil
 				}
@@ -160,39 +165,135 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 				if rowsEvent.Table == nil {
 					return nil
 				}
-				fmt.Println(rowsEvent.Table.ColumnName)
-				for k, v := range rowsEvent.Table.ColumnName {
-					fmt.Println(k, string(v))
-				}
+				//fmt.Println(rowsEvent.Rows)
 
-				fmt.Println("schema: ", string(rowsEvent.Table.Schema))
-				fmt.Println("table: ", string(rowsEvent.Table.Table))
+				//fmt.Println("schema: ", string(rowsEvent.Table.Schema))
+				//fmt.Println("table: ", string(rowsEvent.Table.Table))
 				marshal, err := json.Marshal(rowsEvent.Rows)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(marshal))
-				//err := s.mq.SendMSG(pkg.MQEvent{
-				//	Database: string(rowsEvent.Table.Schema),
-				//	Table:    string(rowsEvent.Table.Table),
-				//	Action:   action,
-				//	OrgRow:   rowsEvent.Rows,
-				//	EventHeader: pkg.EventHeader{
-				//		Timestamp: event.Header.Timestamp,
-				//		LogPos:    event.Header.LogPos,
-				//	},
-				//})
+
+				tableSchema, err := s.tableSchema(schema, table)
 				if err != nil {
-					log.Fatalln(err)
+					return errors.WithStack(err)
 				}
+
+				var sendEvents []pkg.MQEvent
+
+				switch action {
+				case canal.UpdateAction:
+					if len(rowsEvent.Rows) < 2 || len(rowsEvent.Rows)%2 != 0 {
+						return errors.New("UpdateAction rowsEvent.Rows < 2")
+					}
+
+					for i := 0; i < len(rowsEvent.Rows); i += 2 {
+						if len(rowsEvent.Rows[i]) != len(tableSchema.Deltas.Def.Columns) ||
+							len(rowsEvent.Rows[i+1]) != len(tableSchema.Deltas.Def.Columns) {
+							return errors.New(fmt.Sprintf("UpdateAction rowsEvent.Rows[0]: %d  %v rowsEvent.Rows[1]: %d  %v  != tableSchema.Deltas.Def.Columns %v \n", len(rowsEvent.Rows[0]), rowsEvent.Rows[0], len(rowsEvent.Rows[1]), rowsEvent.Rows[1], tableSchema.Deltas.Def.Columns))
+						}
+
+						sendEvent := pkg.MQEvent{
+							Database: schema,
+							Table:    table,
+							Action:   action,
+							OrgRow:   [][]interface{}{rowsEvent.Rows[i], rowsEvent.Rows[i+1]},
+							EventHeader: pkg.EventHeader{
+								Timestamp: event.Header.Timestamp,
+								LogPos:    event.Header.LogPos,
+							},
+						}
+
+						after := make(map[string]interface{})
+						before := make(map[string]interface{})
+						for k, v := range tableSchema.Deltas.Def.Columns {
+							after[v.Name] = rowsEvent.Rows[i][k]
+							before[v.Name] = rowsEvent.Rows[i+1][k]
+						}
+						sendEvent.After = after
+						sendEvent.Before = before
+
+						sendEvents = append(sendEvents, sendEvent)
+					}
+				case canal.DeleteAction:
+					if len(rowsEvent.Rows) < 1 {
+						return errors.New("DeleteAction rowsEvent.Rows < 1")
+					}
+
+					for _, vv := range rowsEvent.Rows {
+						sendEvent := pkg.MQEvent{
+							Database: schema,
+							Table:    table,
+							Action:   action,
+							OrgRow:   [][]interface{}{vv},
+							EventHeader: pkg.EventHeader{
+								Timestamp: event.Header.Timestamp,
+								LogPos:    event.Header.LogPos,
+							},
+						}
+
+						before := make(map[string]interface{})
+						if len(vv) != len(tableSchema.Deltas.Def.Columns) {
+							return errors.New("DeleteAction rowsEvent.Rows[0] != tableSchema.Deltas.Def.Columns")
+						}
+
+						for k, v := range tableSchema.Deltas.Def.Columns {
+							before[v.Name] = vv[k]
+						}
+						sendEvent.Before = before
+
+						sendEvents = append(sendEvents, sendEvent)
+					}
+				case canal.InsertAction:
+					if len(rowsEvent.Rows) < 1 {
+						return errors.New("InsertAction rowsEvent.Rows < 1")
+					}
+
+					for _, vv := range rowsEvent.Rows {
+						if len(vv) != len(tableSchema.Deltas.Def.Columns) {
+							return errors.New("InsertAction rowsEvent.Rows[0] != tableSchema.Deltas.Def.Columns")
+						}
+						sendEvent := pkg.MQEvent{
+							Database: schema,
+							Table:    table,
+							Action:   action,
+							OrgRow:   [][]interface{}{vv},
+							EventHeader: pkg.EventHeader{
+								Timestamp: event.Header.Timestamp,
+								LogPos:    event.Header.LogPos,
+							},
+						}
+
+						after := make(map[string]interface{})
+						for k, v := range tableSchema.Deltas.Def.Columns {
+							after[v.Name] = vv[k]
+						}
+						sendEvent.After = after
+
+						sendEvents = append(sendEvents, sendEvent)
+					}
+				}
+
+				bytes, err := json.Marshal(sendEvents)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(bytes))
+
+				//err := s.mq.SendMSG(sendEvent)
+				//if err != nil {
+				//	log.Fatalln(err)
+				//}
 			}
 
-			// TODO: 修改模型schema 当模型schema更新时会调用当前
+			// 修改模型schema 当模型schema更新时会调用当前
 			queryEvent, ok := event.Event.(*replication.QueryEvent)
 			if ok {
-				// TODO: 添加对模型更新
+				// 添加对模型更新
 				if queryEvent.ErrorCode == 0 {
-					fmt.Println("updateSchema")
+					fmt.Println("updateSchema ", string(queryEvent.Query))
+					fmt.Println()
 					err := s.updateSchema(string(queryEvent.Schema), string(queryEvent.Query))
 					if err != nil {
 						log.Printf("%+v\n", err)
@@ -251,6 +352,7 @@ func (s *Sync) connMysql() error {
 	}
 
 	s.db = db
+
 	return nil
 }
 
@@ -261,6 +363,5 @@ func (s *Sync) close() error {
 	}
 
 	s.binlogSyncer.Close()
-	s.mq.Close()
-	return nil
+	return s.mq.Close()
 }

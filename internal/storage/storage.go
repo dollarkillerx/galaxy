@@ -98,7 +98,7 @@ func (s *storage) UpdateSchema(db string, table string, schema pkg.HistorySchema
 		return errors.WithStack(err)
 	}
 
-	fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
+	fmt.Println("UpdateSchema: ", db, "   table: ", table, " ", string(marshal))
 
 	return s.SetNX(id, marshal, 0)
 }
