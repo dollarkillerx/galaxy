@@ -1,5 +1,5 @@
 package pkg
 
 var (
-	ParameterError = StandardReturn{ErrorCode: 401, Message: "Parameter error"}
+	ParameterError = StandardReturn{ErrorCode: 400, Message: "Parameter error"}
 )

@@ -1,4 +1,4 @@
-package sync
+package sync_server
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -70,7 +71,7 @@ func TestSync2(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	//err = sync.Monitor()
+	//err = sync_server.Monitor()
 	//if err != nil {
 	//	log.Fatalln(err)
 	//}
@@ -283,3 +284,18 @@ func updateSchema(schema string, query string) (err error) {
 //		fmt.Println(string(marshal))
 //	}
 //}
+
+func TestLock(t *testing.T) {
+
+	var mu sync.Mutex
+	for {
+		time.Sleep(time.Second)
+		fmt.Println("hello world ii")
+		{
+			mu.Lock()
+			defer mu.Unlock()
+
+			fmt.Println("hello world")
+		}
+	}
+}

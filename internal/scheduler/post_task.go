@@ -1,8 +1,9 @@
 package scheduler
 
 import (
+	"fmt"
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
-	"github.com/dollarkillerx/galaxy/internal/sync"
+	"github.com/dollarkillerx/galaxy/internal/sync_server"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/gin-gonic/gin"
 
@@ -14,11 +15,11 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 	var task pkg.Task
 	err := ctx.BindJSON(&task)
 	if err != nil {
-		ctx.JSON(401, pkg.ParameterError)
+		ctx.JSON(400, pkg.ParameterError)
 		return
 	}
 	if err := task.LegalVerification(); err != nil {
-		ctx.JSON(401, pkg.StandardReturn{ErrorCode: 401, Message: err.Error()})
+		ctx.JSON(400, pkg.StandardReturn{ErrorCode: 400, Message: err.Error()})
 		return
 	}
 
@@ -26,22 +27,23 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 	err = mq_manager.Manager.Register(task)
 	if err != nil {
 		log.Printf("%+v\n", err)
-		ctx.JSON(401, pkg.StandardReturn{ErrorCode: 401, Message: err.Error()})
+		ctx.JSON(400, pkg.StandardReturn{ErrorCode: 400, Message: err.Error()})
 		return
 	}
 
 	cancel, cancelFunc := context.WithCancel(context.Background())
 	shareSync := pkg.SharedSync{
-		Task:    &task,
-		Context: cancel,
-		Cancel:  cancelFunc,
+		Task:       &task,
+		Context:    cancel,
+		Cancel:     cancelFunc,
+		SaveShared: s.saveChan,
 	}
 
 	// core
-	syncServer, err := sync.New(&shareSync)
+	syncServer, err := sync_server.New(&shareSync)
 	if err != nil {
 		log.Printf("%+v\n", err)
-		ctx.JSON(401, pkg.StandardReturn{ErrorCode: 401, Message: err.Error()})
+		ctx.JSON(400, pkg.StandardReturn{ErrorCode: 400, Message: err.Error()})
 		err := mq_manager.Manager.Close(task.TaskID)
 		if err != nil {
 			log.Printf("%+v\n", err)
@@ -52,7 +54,7 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 	err = syncServer.Monitor()
 	if err != nil {
 		log.Printf("%+v\n", err)
-		ctx.JSON(401, pkg.StandardReturn{ErrorCode: 401, Message: err.Error()})
+		ctx.JSON(400, pkg.StandardReturn{ErrorCode: 400, Message: err.Error()})
 		err := mq_manager.Manager.Close(task.TaskID)
 		if err != nil {
 			log.Printf("%+v\n", err)
@@ -61,12 +63,18 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 	}
 
 	// 任务注册到数据库中
-	{
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
-		s.taskMap[task.TaskID] = &shareSync
+	s.mu.Lock()
+	_, ex := s.taskMap[task.TaskID]
+	s.mu.Unlock()
+	if ex {
+		ctx.JSON(400, pkg.StandardReturn{ErrorCode: 400, Message: fmt.Sprintf("Taskid is existed for %s tasks", task.TaskID)})
 	}
+
+	s.mu.Lock()
+	s.taskMap[task.TaskID] = &shareSync
+	s.mu.Unlock()
+
+	shareSync.SaveShared <- task.TaskID // 进行持久化存储
 
 	ctx.JSON(200, pkg.StandardReturn{Message: "success", Data: gin.H{
 		"mysql_server_id": shareSync.ServerID,

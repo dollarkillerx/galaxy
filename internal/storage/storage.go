@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -61,13 +60,32 @@ func (s *storage) Del(key string) error {
 	})
 }
 
-var once sync.Once
+func (s *storage) Prefix(prefix string) (map[string][]byte, error) {
+	result := make(map[string][]byte)
 
-func (s *storage) Test() {
-	s.Del(getSchemaID("test", "casbin_rule"))
-	//s.GetSchemasByTable("test", "casbin_rule")
-	log.Println("init tes success")
+	err := s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		for it.Seek([]byte(prefix)); it.ValidForPrefix([]byte(prefix)); it.Next() {
+			item := it.Item()
+			k := item.Key()
+			item.Value(func(val []byte) error {
+				result[string(k)] = val
+				return nil
+			})
+		}
+
+		return nil
+	})
+
+	return result, err
 }
+
+//var once sync_server.Once
+//func (s *storage) Test() {
+//	s.Del(getSchemaID("test", "casbin_rule"))
+//	//s.GetSchemasByTable("test", "casbin_rule")
+//	log.Println("init tes success")
+//}
 
 // GetSchemasByTable 获取 HistorySchemas
 func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchemas, error) {
@@ -82,10 +100,10 @@ func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchema
 		return nil, errors.WithStack(err)
 	}
 
-	marshal, err := json.Marshal(historySchemas)
-	if err == nil {
-		fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
-	}
+	//marshal, err := json.Marshal(historySchemas)
+	//if err == nil {
+	//	fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
+	//}
 
 	return &historySchemas, nil
 }
@@ -98,11 +116,52 @@ func (s *storage) UpdateSchema(db string, table string, schema pkg.HistorySchema
 		return errors.WithStack(err)
 	}
 
-	fmt.Println("UpdateSchema: ", db, "   table: ", table, " ", string(marshal))
+	//fmt.Println("UpdateSchema: ", db, "   table: ", table, " ", string(marshal))
 
 	return s.SetNX(id, marshal, 0)
 }
 
 func getSchemaID(db string, table string) string {
 	return fmt.Sprintf("scheam.%s.%s", db, table)
+}
+
+func getTaskID(taskID string) string {
+	return fmt.Sprintf("galaxy_task_%s", taskID)
+}
+
+// UpdateTask 持久化TASK
+func (s *storage) UpdateTask(taskID string, task pkg.SharedSync) error {
+	marshal, err := json.Marshal(task)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	return s.SetNX(getTaskID(taskID), marshal, 0)
+}
+
+// GetTasks 获取所有TASK
+func (s *storage) GetTasks() ([]*pkg.SharedSync, error) {
+	prefix, err := s.Prefix("galaxy_task_")
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var result []*pkg.SharedSync
+
+	for _, v := range prefix {
+		var item pkg.SharedSync
+		err := json.Unmarshal(v, &item)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		result = append(result, &item)
+	}
+
+	return result, nil
+}
+
+// DelTask 删除持久化TASK
+func (s *storage) DelTask(key string) error {
+	return s.Del(getTaskID(key))
 }

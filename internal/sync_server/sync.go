@@ -1,4 +1,4 @@
-package sync
+package sync_server
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
@@ -28,7 +28,7 @@ type Sync struct {
 	binlogSyncer *replication.BinlogSyncer
 	mq           mq_manager.MQ
 
-	tableMap map[string]uint64
+	//tableMap map[string]uint64
 }
 
 func New(sharedSync *pkg.SharedSync) (*Sync, error) {
@@ -74,9 +74,6 @@ func (s *Sync) Monitor() error {
 		pos = mysql.Position{}
 	}
 
-	// TODO: DEL
-	pos.Name = "master.000006"
-	pos.Pos = 107307
 	s.sharedSync.PositionName = pos.Name
 	s.sharedSync.PositionPos = pos.Pos
 	sync, err := s.binlogSyncer.StartSync(pos)
@@ -84,17 +81,11 @@ func (s *Sync) Monitor() error {
 		return errors.WithStack(err)
 	}
 
-	//mq, err := mq_manager.Manager.Get(s.sharedSync.Task.TaskID)
-	//if err != nil {
-	//	return errors.WithStack(err)
-	//}
-	//s.mq = mq
-	// TODO: Del
-	//storage.Storage.Test()
-	//_, err = s.tableSchema("test", "casbin_rule")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
+	mq, err := mq_manager.Manager.Get(s.sharedSync.Task.TaskID)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	s.mq = mq
 
 	go func() {
 	loop:
@@ -110,6 +101,7 @@ func (s *Sync) Monitor() error {
 				if s.sharedSync.StopSync {
 					continue
 				}
+				// 现阶段数据处理采用单线程 多线程处理需要维护许多状态点 复杂度指数级提高 未来优化
 				err := s.syncMySQL(sync)
 				if err != nil {
 					log.Println(err)
@@ -157,18 +149,50 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			if ok {
 				schema := string(rowsEvent.Table.Schema)
 				table := string(rowsEvent.Table.Table)
+				if rowsEvent.Table == nil {
+					return nil
+				}
+				fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d Schema: %s  \n", event.Header.LogPos, event.Header.Timestamp, rowsEvent.Table.Table, action, rowsEvent.Table.TableID, rowsEvent.Table.Schema)
+
 				if string(rowsEvent.Table.Schema) == "maxwell" || string(rowsEvent.Table.Table) == "china_saic_registration_records" {
 					return nil
 				}
 
-				fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d Schema: %s  \n", event.Header.LogPos, event.Header.Timestamp, rowsEvent.Table.Table, action, rowsEvent.Table.TableID, rowsEvent.Table.Schema)
-				if rowsEvent.Table == nil {
+				// 处理 table
+				var database string
+				var tables []string
+				var excludeTables []string
+				var tablesMap map[string]struct{}
+				var excludeTablesMap map[string]struct{}
+				{
+					s.sharedSync.Rw.RLock()
+
+					tables = s.sharedSync.Task.TaskBaseData.Tables
+					tablesMap = s.sharedSync.Task.TaskBaseData.TablesMap
+					excludeTables = s.sharedSync.Task.TaskBaseData.ExcludeTable
+					excludeTablesMap = s.sharedSync.Task.TaskBaseData.ExcludeTableMap
+					database = s.sharedSync.Task.TaskBaseData.Database
+
+					s.sharedSync.Rw.RUnlock()
+				}
+
+				if database != schema {
 					return nil
 				}
-				//fmt.Println(rowsEvent.Rows)
+				if len(tables) != 0 {
+					_, ex := tablesMap[table]
+					if !ex {
+						return nil
+					}
+				}
+				if len(excludeTables) != 0 {
+					_, ex := excludeTablesMap[table]
+					if ex {
+						return nil
+					}
+				}
+				// 处理 table 结束
 
-				//fmt.Println("schema: ", string(rowsEvent.Table.Schema))
-				//fmt.Println("table: ", string(rowsEvent.Table.Table))
 				marshal, err := json.Marshal(rowsEvent.Rows)
 				if err != nil {
 					return err
@@ -275,16 +299,15 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 					}
 				}
 
-				bytes, err := json.Marshal(sendEvents)
-				if err != nil {
-					return err
+				for _, v := range sendEvents {
+					err := s.mq.SendMSG(v)
+					if err != nil {
+						log.Println(err)
+					}
 				}
-				fmt.Println(string(bytes))
 
-				//err := s.mq.SendMSG(sendEvent)
-				//if err != nil {
-				//	log.Fatalln(err)
-				//}
+				s.sharedSync.PositionPos = event.Header.LogPos
+				s.sharedSync.SaveShared <- s.sharedSync.Task.TaskID // 更新
 			}
 
 			// 修改模型schema 当模型schema更新时会调用当前
@@ -292,21 +315,26 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			if ok {
 				// 添加对模型更新
 				if queryEvent.ErrorCode == 0 {
-					fmt.Println("updateSchema ", string(queryEvent.Query))
-					fmt.Println()
 					err := s.updateSchema(string(queryEvent.Schema), string(queryEvent.Query))
 					if err != nil {
 						log.Printf("%+v\n", err)
 					}
+
+					s.sharedSync.PositionPos = event.Header.LogPos
+					s.sharedSync.SaveShared <- s.sharedSync.Task.TaskID // 更新
 				}
 			}
 
 			// TODO: 处理offset
 			offsetEvent, ok := event.Event.(*replication.RotateEvent)
 			if ok {
-				// TODO: 添加对模型更新
-				// ALTER TABLE oauth.gorm_client_store_items MODIFY
-				fmt.Printf("Query: %s\n", offsetEvent.NextLogName)
+				nm := string(offsetEvent.NextLogName)
+
+				if nm != s.sharedSync.PositionName {
+					s.sharedSync.PositionName = nm
+					s.sharedSync.PositionPos = event.Header.LogPos
+					s.sharedSync.SaveShared <- s.sharedSync.Task.TaskID // 发送更新信号
+				}
 			}
 		}
 	}

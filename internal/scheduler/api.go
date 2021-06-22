@@ -21,6 +21,8 @@ func (s *scheduler) registerApi() {
 		v1.POST("/update_task", s.updateTask)
 		// 5. 删除任务
 		v1.POST("/delete_task/:task_id", s.deleteTask)
+		// 5. 任务修复  (尝试修复任务)
+		v1.POST("/restoration_task/:task_id", s.restorationTask)
 	}
 
 	prometheus.Init()
