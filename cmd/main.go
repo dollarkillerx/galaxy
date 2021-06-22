@@ -8,6 +8,8 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.Llongfile | log.LstdFlags)
+
 	err := config.InitConfig()
 	if err != nil {
 		log.Fatalln(err)

@@ -65,6 +65,7 @@ func (s *storage) Prefix(prefix string) (map[string][]byte, error) {
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
 		for it.Seek([]byte(prefix)); it.ValidForPrefix([]byte(prefix)); it.Next() {
 			item := it.Item()
 			k := item.Key()
@@ -103,6 +104,7 @@ func (s *storage) GetSchemasByTable(db string, table string) (*pkg.HistorySchema
 	//marshal, err := json.Marshal(historySchemas)
 	//if err == nil {
 	//	fmt.Println("GetSchemasByTable: ", db, "   table: ", table, " ", string(marshal))
+	//	fmt.Println()
 	//}
 
 	return &historySchemas, nil
@@ -117,6 +119,7 @@ func (s *storage) UpdateSchema(db string, table string, schema pkg.HistorySchema
 	}
 
 	//fmt.Println("UpdateSchema: ", db, "   table: ", table, " ", string(marshal))
+	//fmt.Println()
 
 	return s.SetNX(id, marshal, 0)
 }

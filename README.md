@@ -48,21 +48,71 @@ mysql> GRANT ALL ON galaxy.* TO 'galaxy'@'localhost';
 mysql> GRANT SELECT, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO 'galaxy'@'localhost';
 ```
 
-- new cdc task:
-``` 
-type Task struct {
-	TaskID      string   `json:"task_id"`
-	MySQLUri    string   `json:"mysql_uri"` // user:password@ip:port
-	Database    string   `json:"database"`
-	Tables      []string `json:"tables"` // default: all table
-	ShieldTable []string `json:"shield_table"`
-	StartTime   int64    `json:"start_time"` // default: Starting from 0  , Use the latest: 1
+### HTTP API
+- Get task list  
+  
+HTTP: `GET /v1/task`
 
-	KafkaConf   *KafkaConf   `json:"kafka_conf"`
-	NsqConf     *NsqConf     `json:"nsq_conf"`
-	MongoDBConf *MongoDBConf `json:"mongo_db_conf"`
-	ESConf      *ESConf      `json:"es_conf"`
+curl: `curl --location --request GET '127.0.0.1:8089/v1/task'`
+
+- Issuing tasks 
+
+HTTP: `POST /v1/post_task`
+
+JSON BODY:
+```json
+{
+  "task_id": "task_id", // Current Task Unique ID
+  "mysql_config": {     // Listening mysql configuration
+    "user": "root",
+    "password": "root",
+    "host": "192.168.88.11",
+    "port": 3307
+  },
+  "database": "test", // Listening database
+  "tables": [],  // Listening data sheet, if len(tables) == 0 Listen to all tables under the current db
+  "exclude_table": [] , // Tables that do not listen
+  "start_time": 1624355996,  // Optional value, default only listens to the latest [This feature is very performance hungry (not recommended)]
+  "kafka_conf": {  // Optional value, 
+    "enable_sasl": false,
+    "brokers": [
+      "192.168.88.11:9082",
+      "192.168.88.11:9083",
+      "192.168.88.11:9084"
+    ],
+    "user": "user",  // Optional value, if enable_sasl is true is required
+    "password": "password" // Optional value, if enable_sasl is true is required
+  },
+  "nsq_conf": {}, // Optional value, 
+  "mongo_db_conf": {}, // Optional value, 
+  "es_conf": {} // Optional value, 
 }
+
+// The current system only supports kafka
 ```
 
-
+curl: 
+``` 
+curl --location --request POST '127.0.0.1:8089/v1/post_task' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "task_id": "task_001", 
+  "mysql_config": {  
+    "user": "root",
+    "password": "root",
+    "host": "192.168.88.11",
+    "port": 3307
+  },
+  "database": "test",
+  "tables": [],
+  "exclude_table": [] , 
+  "kafka_conf": {  
+    "enable_sasl": false,
+    "brokers": [
+      "192.168.88.11:9082",
+      "192.168.88.11:9083",
+      "192.168.88.11:9084"
+    ]
+  }
+}'
+```

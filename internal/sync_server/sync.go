@@ -11,7 +11,6 @@ import (
 
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -28,7 +27,7 @@ type Sync struct {
 	binlogSyncer *replication.BinlogSyncer
 	mq           mq_manager.MQ
 
-	//tableMap map[string]uint64
+	cfg replication.BinlogSyncerConfig
 }
 
 func New(sharedSync *pkg.SharedSync) (*Sync, error) {
@@ -52,27 +51,24 @@ func (s *Sync) Monitor() error {
 		UseDecimal: true,
 	}
 
+	s.cfg = cfg
 	s.binlogSyncer = replication.NewBinlogSyncer(cfg)
 
 	var pos mysql.Position
 	var err error
 	// 使用最新值
-	// TODO: 任务恢复时BUG
-	if s.sharedSync.Task.StartTime == 0 {
-		s.sharedSync.PositionPos = 1
-	}
-	if s.sharedSync.PositionPos == 1 { // 使用最新的
+	if s.sharedSync.PositionPos == 0 { // 使用最新的
 		pos, err = s.GetMasterPos()
 		if err != nil {
 			return err
 		}
+		fmt.Println("Latest Pos")
 	} else if s.sharedSync.PositionPos != 0 { // 使用设定值
 		pos, err = s.tryPosition(s.sharedSync.PositionName, s.sharedSync.PositionPos)
 		if err != nil {
 			return err
 		}
-	} else { // 重0开始
-		pos = mysql.Position{}
+		fmt.Println("Pos Recovery", pos.Name, pos.Pos)
 	}
 
 	s.sharedSync.PositionName = pos.Name
@@ -93,15 +89,17 @@ func (s *Sync) Monitor() error {
 		for {
 			select {
 			case <-s.sharedSync.Context.Done():
+				log.Println("Monitor Close: ", s.sharedSync.Task.TaskID)
 				err := s.close()
 				if err != nil {
 					log.Println(err)
 				}
+
 				break loop
 			default:
-				if s.sharedSync.StopSync {
-					continue
-				}
+				//if s.sharedSync.StopSync {
+				//	continue
+				//}
 				// 现阶段数据处理采用单线程 多线程处理需要维护许多状态点 复杂度指数级提高 未来优化
 				err := s.syncMySQL(sync)
 				if err != nil {
@@ -112,6 +110,7 @@ func (s *Sync) Monitor() error {
 		}
 	}()
 
+	log.Println("Monitor Init Success: ", s.sharedSync.Task.TaskID)
 	return nil
 }
 
@@ -126,15 +125,16 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 		fmt.Printf("Get event error: %v\n", errors.ErrorStack(err))
 		return err
 	}
+
 	//event.Dump(os.Stdout)
 	if event.Header != nil {
 
 		if event.Event != nil {
-			if s.sharedSync.Task.StartTime != 0 {
-				if event.Header.Timestamp < s.sharedSync.Task.StartTime {
-					return nil
-				}
-			}
+			//if s.sharedSync.Task.StartTime != 0 {
+			//	if event.Header.Timestamp < s.sharedSync.Task.StartTime {
+			//		return nil
+			//	}
+			//}
 
 			var action string
 			switch event.Header.EventType {
@@ -151,11 +151,6 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 				schema := string(rowsEvent.Table.Schema)
 				table := string(rowsEvent.Table.Table)
 				if rowsEvent.Table == nil {
-					return nil
-				}
-				fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d Schema: %s  \n", event.Header.LogPos, event.Header.Timestamp, rowsEvent.Table.Table, action, rowsEvent.Table.TableID, rowsEvent.Table.Schema)
-
-				if string(rowsEvent.Table.Schema) == "maxwell" || string(rowsEvent.Table.Table) == "china_saic_registration_records" {
 					return nil
 				}
 
@@ -192,14 +187,10 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 						return nil
 					}
 				}
+
+				//fmt.Printf("LogPos: %d time: %d table: %s action: %s  TableID: %d Schema: %s  \n", event.Header.LogPos, event.Header.Timestamp, rowsEvent.Table.Table, action, rowsEvent.Table.TableID, rowsEvent.Table.Schema)
+
 				// 处理 table 结束
-
-				marshal, err := json.Marshal(rowsEvent.Rows)
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(marshal))
-
 				tableSchema, err := s.tableSchema(schema, table)
 				if err != nil {
 					return errors.WithStack(err)
@@ -314,9 +305,19 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			// 修改模型schema 当模型schema更新时会调用当前
 			queryEvent, ok := event.Event.(*replication.QueryEvent)
 			if ok {
+				if string(queryEvent.Query) == "BEGIN" {
+					return nil
+				}
+				log.Println("QueryEvent: ", string(queryEvent.Query))
 				// 添加对模型更新
 				if queryEvent.ErrorCode == 0 {
-					err := s.updateSchema(string(queryEvent.Schema), string(queryEvent.Query))
+					schema := string(queryEvent.Schema)
+					if schema != "" {
+						if schema != s.sharedSync.Task.Database {
+							return nil
+						}
+					}
+					err := s.updateSchema(schema, string(queryEvent.Query))
 					if err != nil {
 						log.Printf("%+v\n", err)
 					}
@@ -330,6 +331,7 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			offsetEvent, ok := event.Event.(*replication.RotateEvent)
 			if ok {
 				nm := string(offsetEvent.NextLogName)
+				log.Println("RotateEvent: ", nm)
 
 				if nm != s.sharedSync.PositionName {
 					s.sharedSync.PositionName = nm
@@ -354,7 +356,9 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 
 	_, err = sync.GetEvent(context.Background())
 	// master.000005, bin.000737
-	return mysql.Position{}, err
+	s.binlogSyncer.Close()
+	s.binlogSyncer = replication.NewBinlogSyncer(s.cfg)
+	return ps, err
 }
 
 func (s *Sync) GetMasterPos() (mysql.Position, error) {

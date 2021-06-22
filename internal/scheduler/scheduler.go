@@ -88,6 +88,7 @@ func (s *scheduler) taskRecovery() {
 			cancel, cancelFunc := context.WithCancel(context.Background())
 			it.Cancel = cancelFunc
 			it.Context = cancel
+			it.SaveShared = s.saveChan
 
 			err := mq_manager.Manager.Register(*it.Task)
 			if err != nil {
@@ -98,13 +99,13 @@ func (s *scheduler) taskRecovery() {
 
 			s, err := sync_server.New(it)
 			if err != nil {
-				log.Println("Task recovery failed: ", it.Task.TaskID, "  err: ", err)
+				log.Printf("Task recovery failed:%s ,%+v\n", it.Task.TaskID, err)
 				it.ErrorMsg = err.Error()
 				return
 			}
 			err = s.Monitor()
 			if err != nil {
-				log.Println("Task recovery failed: ", it.Task.TaskID, "  err: ", err)
+				log.Printf("Task recovery failed:%s ,%+v\n", it.Task.TaskID, err)
 				it.ErrorMsg = err.Error()
 				return
 			}

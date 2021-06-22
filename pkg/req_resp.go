@@ -57,11 +57,11 @@ type TaskBaseData struct {
 	TaskID          string              `json:"task_id"`
 	MySqlConfig     MySQLConfig         `json:"mysql_config"`
 	Database        string              `json:"database"`
-	Tables          []string            `json:"tables"`       // default: all table
-	ExcludeTable    []string            `json:"shield_table"` // 排除表 table
+	Tables          []string            `json:"tables"`        // default: all table
+	ExcludeTable    []string            `json:"exclude_table"` // 排除表 table
 	TablesMap       map[string]struct{} `json:"tables_map"`
 	ExcludeTableMap map[string]struct{} `json:"exclude_table_map"`
-	StartTime       uint32              `json:"start_time"` // default: Use the latest (鸡肋非必要不建议使用, 使用限制: 1. start_time时间到生成任务 时段schema 不可发生改变, 2. 性能低效)
+	//StartTime       uint32              `json:"start_time"` // default: Use the latest (鸡肋非必要不建议使用, 使用限制: 1. start_time时间到生成任务 时段schema 不可发生改变, 2. 性能低效)
 }
 
 type MySQLConfig struct {

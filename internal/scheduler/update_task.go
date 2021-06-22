@@ -61,7 +61,7 @@ func (s *scheduler) stopTask(ctx *gin.Context) {
 	case "v1": // v1 恢复 使用暂停时更新
 
 	case "v2": // v2 恢复 使用最新
-		task.PositionPos = 1
+		task.PositionPos = 0
 	}
 
 	syncServer, err := sync_server.New(task)

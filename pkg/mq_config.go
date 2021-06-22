@@ -7,7 +7,6 @@ type KafkaConf struct {
 	Brokers    []string `json:"brokers"`
 	User       string   `json:"user"`
 	Password   string   `json:"password"`
-	Topic      string   `json:"topic"`
 }
 
 type NsqConf struct {

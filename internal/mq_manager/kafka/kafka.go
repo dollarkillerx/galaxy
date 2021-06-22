@@ -40,6 +40,7 @@ func (k *Kafka) InitMQ(cfg pkg.Task) error {
 	k.taskChannel = make(chan pkg.MQEvent, 1000)
 	k.closeTask = make(chan struct{})
 
+	go k.core()
 	return nil
 }
 
@@ -65,6 +66,7 @@ loop:
 				log.Println(err)
 				continue
 			}
+
 			_, _, err = k.producer.SendMessage(&sarama.ProducerMessage{
 				Topic: fmt.Sprintf("%s.%s.%s", k.cfg.TaskID, event.Database, event.Table),
 				Key:   sarama.ByteEncoder(fmt.Sprintf("%s.%s", event.Database, event.Table)),
