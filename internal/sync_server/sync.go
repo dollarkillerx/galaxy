@@ -57,6 +57,7 @@ func (s *Sync) Monitor() error {
 	var pos mysql.Position
 	var err error
 	// 使用最新值
+	// TODO: 任务恢复时BUG
 	if s.sharedSync.Task.StartTime == 0 {
 		s.sharedSync.PositionPos = 1
 	}
@@ -391,5 +392,6 @@ func (s *Sync) close() error {
 	}
 
 	s.binlogSyncer.Close()
-	return s.mq.Close()
+
+	return mq_manager.Manager.Close(s.sharedSync.Task.TaskID)
 }

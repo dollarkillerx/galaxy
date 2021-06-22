@@ -1,13 +1,13 @@
 package scheduler
 
 import (
-	"fmt"
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/internal/sync_server"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/gin-gonic/gin"
 
 	"context"
+	"fmt"
 	"log"
 )
 
@@ -85,12 +85,6 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 }
 
 func (s *scheduler) getTask(ctx *gin.Context) {
-	//marshal, err := json.Marshal(s.taskMap)
-	//if err != nil {
-	//	ctx.JSON(500, pkg.StandardReturn{ErrorCode: 500, Message: "Task acquisition failed"})
-	//	return
-	//}
-
 	ctx.JSON(200, pkg.StandardReturn{Data: gin.H{
 		"total": len(s.taskMap),
 		"task":  s.taskMap,

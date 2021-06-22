@@ -2,11 +2,13 @@ package scheduler
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/config"
+	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/internal/sync_server"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/gin-gonic/gin"
 
+	"context"
 	"log"
 	"sync"
 )
@@ -16,7 +18,7 @@ import (
 
 // TODO: [x] 状态持久化
 // TODO: [x] 任务恢复
-// TODO: [ ] 任务多暂停模式
+// TODO: [x] 任务多暂停模式
 
 type scheduler struct {
 	app     *gin.Engine
@@ -82,6 +84,18 @@ func (s *scheduler) taskRecovery() {
 		for i := range tasks {
 			it := tasks[i]
 			s.taskMap[it.Task.TaskID] = it
+
+			cancel, cancelFunc := context.WithCancel(context.Background())
+			it.Cancel = cancelFunc
+			it.Context = cancel
+
+			err := mq_manager.Manager.Register(*it.Task)
+			if err != nil {
+				it.ErrorMsg = err.Error()
+				log.Println("Manager Error Task recovery failed: ", it.Task.TaskID, "  err: ", err)
+				return
+			}
+
 			s, err := sync_server.New(it)
 			if err != nil {
 				log.Println("Task recovery failed: ", it.Task.TaskID, "  err: ", err)

@@ -19,7 +19,6 @@ var Manager = manager{
 	mq: map[string]MQ{},
 }
 
-// TODO: 处理重复问题
 func (m *manager) Register(task pkg.Task) error {
 	_, ex := m.mq[task.TaskBaseData.TaskID]
 	if ex {

@@ -4,13 +4,14 @@ Galaxy High performance MySQL CDC
 ![](./doc/l1.png)
 
 ## Features
-- [ ] Infrastructure
-- [ ] Kafka
+- [x] Infrastructure
+- [x] Kafka
 - [ ] NSQ
 - [ ] Monitorable   
-- [ ] Recovery synchronization
-- [ ] Pause synchronization
-- [ ] Latest synchronization
+- [x] Recovery synchronization
+- [x] Pause synchronization
+- [x] Latest synchronization
+- [ ] Compliance Test
 
 
 ## depend
