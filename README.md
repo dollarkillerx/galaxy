@@ -15,7 +15,7 @@ Galaxy High performance MySQL CDC
 
 
 ## depend
-- github.com/go-mysql-org/go-mysql
+- github.com/dollarkillerx/go-mysql
 
 ## use
 ###  mysql configure
@@ -156,6 +156,8 @@ CURL:
 ``` 
 curl --location --request POST '127.0.0.1:8089/v1/delete_task/task_001'
 ```
+
+> Warning: If you want to create the currently deleted TaskID, wait for the 11S system to recycle resource recycling
 
 ### Modify tasks
 

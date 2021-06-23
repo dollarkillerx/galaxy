@@ -1,11 +1,14 @@
 package scheduler
 
 import (
+	"fmt"
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/internal/sync_server"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/gin-gonic/gin"
+	"os"
+	"time"
 
 	"context"
 	"log"
@@ -120,6 +123,15 @@ func (s *scheduler) deleteTask(ctx *gin.Context) {
 	if err != nil {
 		log.Println(err)
 	}
+
+	go func() {
+		// 进行回收
+		time.Sleep(time.Second * 10)
+		err = os.RemoveAll(fmt.Sprintf("./galaxy_schema_%s", taskId))
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	ctx.JSON(200, pkg.StandardReturn{
 		Message: "DEL TASK SUCCESS: " + taskId,

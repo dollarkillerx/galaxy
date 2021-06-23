@@ -5,10 +5,11 @@ go 1.14
 require (
 	github.com/Shopify/sarama v1.29.0
 	github.com/dgraph-io/badger/v3 v3.2103.0
+	github.com/dollarkillerx/async_utils v0.0.3
 	github.com/gin-gonic/gin v1.7.2
-	github.com/go-mysql-org/go-mysql v1.3.0
+	github.com/dollarkillerx/go-mysql v1.4.1
 	github.com/go-playground/validator/v10 v10.6.1 // indirect
-	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
@@ -23,4 +24,6 @@ require (
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gorm.io/driver/mysql v1.1.1
+	gorm.io/gorm v1.21.11
 )

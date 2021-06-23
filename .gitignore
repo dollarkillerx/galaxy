@@ -16,3 +16,4 @@
 .idea
 internal/storage/galaxy_data
 galaxy_data
+galaxy_schema_task_*
