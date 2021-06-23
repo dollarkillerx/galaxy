@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: galaxy
+  name: galaxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: galaxy
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: galaxy
+    spec:
+      imagePullSecrets:
+        - name: harbor-docker-secret
+      restartPolicy: Always
+      containers:
+        - image: dollarkiller/galaxy:latest
+          imagePullPolicy: Always
+          name: galaxy
+          ports:
+            - containerPort: 8689

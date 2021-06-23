@@ -107,7 +107,7 @@ func (s *Sync) Monitor() error {
 				err := s.syncMySQL()
 				if err != nil {
 					log.Printf("id: %s err: %s \n", s.sharedSync.Task.TaskID, err.Error())
-					os.Exit(0)
+					//os.Exit(0)
 					continue
 				}
 			}

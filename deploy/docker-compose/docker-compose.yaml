@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  galaxy:
+    container_name: "galaxy"
+    image: dollarkiller/galaxy:latest
+    restart: always
+    environment:
+      ListenAddr: 0.0.0.0:8689
+    ports:
+      - "8689:8689"
