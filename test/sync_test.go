@@ -78,12 +78,12 @@ func TestBet(t *testing.T) {
 		close(over)
 	})
 
-	for j := 0; j < 300; j++ {
+	for j := 0; j < 100000; j++ {
 		var r []TestModule
 		for i := 0; i < 1000; i++ {
 			f := rand.Float64()
 			r = append(r, TestModule{
-				Username: fmt.Sprintf("sp5_v%d_%d", j, i),
+				Username: fmt.Sprintf("sp6_v%d_%d", j, i),
 				Age:      i,
 				Money:    f,
 				Total:    &f,
