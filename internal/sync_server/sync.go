@@ -368,9 +368,7 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 
 	_, err = sync.GetEvent(context.Background())
 	// master.000005, bin.000737
-	fmt.Println("开始关闭   binlogSyncer")
 	s.binlogSyncer.Close()
-	fmt.Println("开始关闭   binlogSyncer End")
 	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, s.sharedSync.Task.TaskID)
 	return ps, err
 }

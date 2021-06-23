@@ -3,9 +3,10 @@ package test
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"testing"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func TestBatchInsert(t *testing.T) {
