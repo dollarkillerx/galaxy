@@ -85,6 +85,11 @@ func (s *scheduler) taskRecovery() {
 			it := tasks[i]
 			s.taskMap[it.Task.TaskID] = it
 
+			// 暂停任务 不自动启动
+			if it.StopSync {
+				continue
+			}
+
 			cancel, cancelFunc := context.WithCancel(context.Background())
 			it.Cancel = cancelFunc
 			it.Context = cancel

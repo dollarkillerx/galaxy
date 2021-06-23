@@ -36,12 +36,15 @@ func (s *scheduler) stopTask(ctx *gin.Context) {
 
 	if rc.StopType == "stop" {
 		task.Cancel()
-
+		task.StopSync = true // 防止重启 恢复
+		task.SaveShared <- task.Task.TaskID
 		ctx.JSON(200, pkg.StandardReturn{
 			Message: "STOP TASK SUCCESS: " + rc.TaskID,
 		})
 		return
 	}
+
+	task.StopSync = false
 
 	// 可能导致泄露
 	c, cancelFunc := context.WithCancel(context.Background())
@@ -58,9 +61,9 @@ func (s *scheduler) stopTask(ctx *gin.Context) {
 	}
 
 	switch rc.StopType {
-	case "v1": // v1 恢复 使用暂停时更新
+	case "recovery_v1": // v1 恢复 使用暂停时更新
 
-	case "v2": // v2 恢复 使用最新
+	case "recovery_v2": // v2 恢复 使用最新
 		task.PositionPos = 0
 	}
 
@@ -86,6 +89,7 @@ func (s *scheduler) stopTask(ctx *gin.Context) {
 		return
 	}
 
+	task.SaveShared <- task.Task.TaskID
 	ctx.JSON(200, pkg.StandardReturn{
 		Message: "STOP TASK SUCCESS: " + rc.TaskID,
 	})
@@ -107,6 +111,10 @@ func (s *scheduler) deleteTask(ctx *gin.Context) {
 	}
 
 	task.Cancel()
+
+	s.mu.Lock()
+	delete(s.taskMap, taskId)
+	s.mu.Unlock()
 
 	err := storage.Storage.DelTask(taskId)
 	if err != nil {
@@ -162,9 +170,24 @@ func (s *scheduler) updateTask(ctx *gin.Context) {
 			return
 		}
 
-		task.Task.Database = update.Database
+		if update.Database != "" {
+			task.Task.Database = update.Database
+		}
 		task.Task.Tables = update.Tables
 		task.Task.ExcludeTable = update.ExcludeTable
+
+		task.Task.TablesMap = map[string]struct{}{}
+		task.Task.ExcludeTableMap = map[string]struct{}{}
+
+		for _, v := range task.Task.Tables {
+			task.Task.TablesMap[v] = struct{}{}
+		}
+
+		for _, v := range task.Task.ExcludeTable {
+			task.Task.ExcludeTableMap[v] = struct{}{}
+		}
+
+		task.SaveShared <- task.Task.TaskID
 	}
 
 	ctx.JSON(200, pkg.StandardReturn{Message: "Update Success"})

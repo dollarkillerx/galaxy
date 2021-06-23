@@ -8,6 +8,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/replication"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pingcap/errors"
+	"strings"
 
 	"context"
 	"database/sql"
@@ -62,17 +63,22 @@ func (s *Sync) Monitor() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("Latest Pos")
+		fmt.Println("Latest Pos", "   taskID: ", s.sharedSync.Task.TaskID)
 	} else if s.sharedSync.PositionPos != 0 { // 使用设定值
 		pos, err = s.tryPosition(s.sharedSync.PositionName, s.sharedSync.PositionPos)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Pos Recovery", pos.Name, pos.Pos)
+
+		//pos.Pos = s.sharedSync.PositionPos
+		//pos.Name = s.sharedSync.PositionName
+		fmt.Println("Pos Recovery", pos.Name, pos.Pos, "   taskID: ", s.sharedSync.Task.TaskID)
 	}
 
 	s.sharedSync.PositionName = pos.Name
 	s.sharedSync.PositionPos = pos.Pos
+
+	log.Println("Start BinlogSyncer: ", pos, "   taskID: ", s.sharedSync.Task.TaskID)
 	sync, err := s.binlogSyncer.StartSync(pos)
 	if err != nil {
 		return errors.WithStack(err)
@@ -103,7 +109,8 @@ func (s *Sync) Monitor() error {
 				// 现阶段数据处理采用单线程 多线程处理需要维护许多状态点 复杂度指数级提高 未来优化
 				err := s.syncMySQL(sync)
 				if err != nil {
-					log.Println(err)
+					log.Printf("id: %s err: %s \n", s.sharedSync.Task.TaskID, err.Error())
+					//os.Exit(0)
 					continue
 				}
 			}
@@ -117,12 +124,17 @@ func (s *Sync) Monitor() error {
 func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 	event, err := sync.GetEvent(context.Background())
 	if err != nil {
+		if strings.Contains(err.Error(), "no corresponding table map event") {
+			return nil
+		}
 		// Try to output all left events
 		events := sync.DumpEvents()
 		for _, e := range events {
 			e.Dump(os.Stdout)
 		}
-		fmt.Printf("Get event error: %v\n", errors.ErrorStack(err))
+
+		fmt.Printf("ID: %s Get event error: %s\n", s.sharedSync.Task.TaskID, errors.ErrorStack(err))
+		//fmt.Printf("Get event error: %v\n", errors.ErrorStack(err))
 		return err
 	}
 
@@ -331,7 +343,7 @@ func (s *Sync) syncMySQL(sync *replication.BinlogStreamer) error {
 			offsetEvent, ok := event.Event.(*replication.RotateEvent)
 			if ok {
 				nm := string(offsetEvent.NextLogName)
-				log.Println("RotateEvent: ", nm)
+				log.Println("RotateEvent: ", nm, " pos: ", offsetEvent.Position)
 
 				if nm != s.sharedSync.PositionName {
 					s.sharedSync.PositionName = nm
@@ -356,7 +368,9 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 
 	_, err = sync.GetEvent(context.Background())
 	// master.000005, bin.000737
+	fmt.Println("开始关闭   binlogSyncer")
 	s.binlogSyncer.Close()
+	fmt.Println("开始关闭   binlogSyncer End")
 	s.binlogSyncer = replication.NewBinlogSyncer(s.cfg)
 	return ps, err
 }

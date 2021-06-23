@@ -38,8 +38,8 @@ func (t *Task) LegalVerification() error {
 type TaskUpdate struct {
 	TaskID       string   `json:"task_id"`
 	Database     string   `json:"database"`
-	Tables       []string `json:"tables"`       // default: all table
-	ExcludeTable []string `json:"shield_table"` // 排除表 table
+	Tables       []string `json:"tables"`        // default: all table
+	ExcludeTable []string `json:"exclude_table"` // 排除表 table
 }
 
 // TODO: 添加校验

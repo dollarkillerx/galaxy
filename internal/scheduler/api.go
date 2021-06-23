@@ -16,7 +16,7 @@ func (s *scheduler) registerApi() {
 		// 2. 获取任务
 		v1.GET("/task", s.getTask)
 		// 3. 暂停任务
-		v1.POST("/stop_task/:task_id", s.stopTask) // stop_task 不会恢复到之前的log位置 而是获取当前最新的log
+		v1.POST("/stop_task", s.stopTask) // stop_task 不会恢复到之前的log位置 而是获取当前最新的log
 		// 4. 修改任务
 		v1.POST("/update_task", s.updateTask)
 		// 5. 删除任务

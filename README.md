@@ -48,14 +48,14 @@ mysql> GRANT ALL ON galaxy.* TO 'galaxy'@'localhost';
 mysql> GRANT SELECT, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO 'galaxy'@'localhost';
 ```
 
-### HTTP API
-- Get task list  
+## HTTP API
+### Get task list  
   
 HTTP: `GET /v1/task`
 
 curl: `curl --location --request GET '127.0.0.1:8089/v1/task'`
 
-- Issuing tasks 
+### Issuing tasks 
 
 HTTP: `POST /v1/post_task`
 
@@ -115,4 +115,58 @@ curl --location --request POST '127.0.0.1:8089/v1/post_task' \
     ]
   }
 }'
+```
+
+### Suspension of tasks
+
+HTTP: `POST /v1/stop_task`
+
+JSON BODY: 
+```json
+{
+  "task_id": "task_001",
+  "stop_type":  "stop"  // params:   1. stop      2.  recovery_v1 (default ,  Resume and continue synchronization)   2.recovery_v2  (Restore Sync Only Latest)
+}
+```
+
+**stop_type**
+``` 
+enum stop_type {
+    stop                // Stop Synchronization
+    recovery_v1         // default ,  Resume and continue synchronization
+    recovery_v2         // Restore Sync Only Latest
+}
+```
+
+CURL :
+``` 
+curl --location --request POST '127.0.0.1:8089/v1/stop_task' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "task_id": "task_001",
+    "stop_type":  "recovery_v1"
+}'
+```
+
+### del task
+
+HTTP: `POST /v1/delete_task/:task_id`
+
+CURL: 
+``` 
+curl --location --request POST '127.0.0.1:8089/v1/delete_task/task_001'
+```
+
+### Modify tasks
+
+HTTP: `POST /v1/update_task`
+
+JSON BODY:
+```json
+{
+    "task_id": "",   // Required
+    "database": "",  // Required
+    "tables": [],
+    "exclude_table": []
+}
 ```
