@@ -3,16 +3,9 @@ package test
 import (
 	"database/sql"
 	"fmt"
-	"github.com/dollarkillerx/async_utils"
-	"gorm.io/gorm"
-	"log"
-	"math/rand"
-	"testing"
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
-
-	"gorm.io/driver/mysql"
+	"log"
+	"testing"
 )
 
 func TestBatchInsert(t *testing.T) {
@@ -43,90 +36,5 @@ func TestP2(t *testing.T) {
 	c := []int{1, 2, 3, 4, 5, 6, 7, 8}
 	for i := 0; i < len(c); i += 2 {
 		fmt.Println(c[i], " ", c[i+1])
-	}
-}
-
-type TestModule struct {
-	gorm.Model
-	Username string   `json:"username"`
-	Age      int      `json:"age"`
-	Money    float64  `gorm:"type:DECIMAL(20,4)"`
-	Total    *float64 `gorm:"type:FLOAT(20,4)"`
-	//Sr       string   `json:"sr"`
-	//Ssr      string   `json:"ssr"`
-}
-
-var db *gorm.DB
-var err error
-
-func init() {
-	dsn := "root:root@tcp(192.168.88.11:3307)/test?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
-func TestBet(t *testing.T) {
-	err := db.AutoMigrate(&TestModule{})
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	over := make(chan struct{})
-	poolFunc := async_utils.NewPoolFunc(10, func() {
-		close(over)
-	})
-
-	for j := 0; j < 300; j++ {
-		var r []TestModule
-		for i := 0; i < 1000; i++ {
-			f := rand.Float64()
-			r = append(r, TestModule{
-				Username: fmt.Sprintf("sp5_v%d_%d", j, i),
-				Age:      i,
-				Money:    f,
-				Total:    &f,
-				//Sp:       fmt.Sprintf("sp_v%d_%d", j, i),
-				//Ssr:      fmt.Sprintf("ssr_v%d_%d", j, i),
-			})
-		}
-
-		poolFunc.Send(func() {
-			db.Create(r)
-			fmt.Println("In: ", j)
-		})
-	}
-
-	poolFunc.Over()
-	<-over
-
-	//err = db.CreateInBatches(&r, 600).Error
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-}
-
-func TestUpdate(t *testing.T) {
-	var lis []TestModule
-	err := db.Model(&TestModule{}).Limit(200).Scan(&lis).Error
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	for i, v := range lis {
-		rand.Seed(time.Now().UnixNano())
-		intn := rand.Intn(100)
-		if intn > 50 {
-			err := db.Model(&TestModule{}).Where("id = ?", v.ID).Unscoped().Delete(&TestModule{}).Error
-			if err != nil {
-				log.Fatalln(err)
-			}
-		} else {
-			err := db.Model(&TestModule{}).Where("id = ?", v.ID).Update("username", fmt.Sprintf("%d_sz", i)).Error
-			if err != nil {
-				log.Fatalln(err)
-			}
-		}
 	}
 }
