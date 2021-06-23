@@ -2,6 +2,7 @@ package sync_server
 
 import (
 	"fmt"
+	"github.com/dollarkillerx/go-mysql/mysql"
 	"log"
 	"strings"
 
@@ -241,4 +242,15 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 	}
 
 	return nil
+}
+
+// GetMasterPos 获取 Master Pos信息
+func (s *Sync) GetMasterPos() (mysql.Position, error) {
+	var status pkg.MySQLStatus
+	err := s.db.QueryRow("SHOW MASTER STATUS").Scan(&status.File, &status.Position, &status.Binlog_Do_DB, &status.Binlog_lgnore_DB, &status.Executed_Gtid_Set)
+	if err != nil {
+		return mysql.Position{}, errors.Trace(err)
+	}
+
+	return mysql.Position{Name: status.File, Pos: status.Position}, nil
 }

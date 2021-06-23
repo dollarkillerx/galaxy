@@ -1,17 +1,17 @@
 package scheduler
 
 import (
-	"fmt"
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/internal/sync_server"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/gin-gonic/gin"
-	"os"
-	"time"
 
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"time"
 )
 
 type StopTaskParams struct {

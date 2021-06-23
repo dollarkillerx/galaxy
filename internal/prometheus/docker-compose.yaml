@@ -1,19 +1,9 @@
 version: '3'
 
 services:
-  galaxy:
-    container_name: "galaxy"
-    image: dollarkiller/galaxy:latest
-    restart: always
-    environment:
-      ListenAddr: 0.0.0.0:8689
-    ports:
-      - "8689:8689"
-
   prometheus:   # docker run --restart=always --name prometheus -p 9090:9090 prom/prometheus:v2.27.1
     container_name: "prometheus"
     image: prom/prometheus:v2.27.1
-    restart: always
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yml
     ports:

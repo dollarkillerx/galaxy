@@ -55,6 +55,7 @@ func (s *Sync) Monitor() error {
 	var err error
 	s.binlogSyncer, err = replication.NewBinlogSyncer(cfg, s.sharedSync.Task.TaskID)
 	if err != nil {
+		s.sharedSync.ErrorMsg = err.Error()
 		return errors.WithStack(err)
 	}
 
@@ -63,12 +64,14 @@ func (s *Sync) Monitor() error {
 	if s.sharedSync.PositionPos == 0 { // 使用最新的
 		pos, err = s.GetMasterPos()
 		if err != nil {
+			s.sharedSync.ErrorMsg = err.Error()
 			return err
 		}
 		fmt.Println("Latest Pos", "   taskID: ", s.sharedSync.Task.TaskID)
 	} else if s.sharedSync.PositionPos != 0 { // 使用设定值
 		pos, err = s.tryPosition(s.sharedSync.PositionName, s.sharedSync.PositionPos)
 		if err != nil {
+			s.sharedSync.ErrorMsg = err.Error()
 			return err
 		}
 
@@ -81,11 +84,13 @@ func (s *Sync) Monitor() error {
 	log.Println("Start BinlogSyncer: ", pos, "   taskID: ", s.sharedSync.Task.TaskID)
 	s.sync, err = s.binlogSyncer.StartSync(pos)
 	if err != nil {
+		s.sharedSync.ErrorMsg = err.Error()
 		return errors.WithStack(err)
 	}
 
 	mq, err := mq_manager.Manager.Get(s.sharedSync.Task.TaskID)
 	if err != nil {
+		s.sharedSync.ErrorMsg = err.Error()
 		return errors.WithStack(err)
 	}
 	s.mq = mq
@@ -371,16 +376,6 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 	s.binlogSyncer.Close()
 	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, s.sharedSync.Task.TaskID)
 	return ps, err
-}
-
-func (s *Sync) GetMasterPos() (mysql.Position, error) {
-	var status pkg.MySQLStatus
-	err := s.db.QueryRow("SHOW MASTER STATUS").Scan(&status.File, &status.Position, &status.Binlog_Do_DB, &status.Binlog_lgnore_DB, &status.Executed_Gtid_Set)
-	if err != nil {
-		return mysql.Position{}, errors.Trace(err)
-	}
-
-	return mysql.Position{Name: status.File, Pos: status.Position}, nil
 }
 
 func (s *Sync) connMysql() error {

@@ -5,10 +5,6 @@ import (
 )
 
 var (
-	cpuTemp = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "cpu_temperature_celsius",
-		Help: "Current temperature of the CPU. ",
-	})
 	cgTemp = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "cg",
 		Help: "cg",
@@ -16,6 +12,5 @@ var (
 )
 
 func Init() {
-	prometheus.MustRegister(cpuTemp)
 	prometheus.MustRegister(cgTemp)
 }
