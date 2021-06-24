@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"github.com/arl/statsviz"
 	"github.com/dollarkillerx/galaxy/internal/prometheus"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,6 +27,15 @@ func (s *scheduler) registerApi() {
 	}
 
 	prometheus.Init()
+
 	// prometheus
 	s.app.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	s.app.GET("/debug/statsviz/*filepath", func(context *gin.Context) {
+		if context.Param("filepath") == "/ws" {
+			statsviz.Ws(context.Writer, context.Request)
+			return
+		}
+		statsviz.IndexAtRoot("/debug/statsviz").ServeHTTP(context.Writer, context.Request)
+	})
 }
