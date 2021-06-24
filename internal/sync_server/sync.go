@@ -53,7 +53,7 @@ func (s *Sync) Monitor() error {
 
 	s.cfg = cfg
 	var err error
-	s.binlogSyncer, err = replication.NewBinlogSyncer(cfg, storage.Storage.GetDB())
+	s.binlogSyncer, err = replication.NewBinlogSyncer(cfg, storage.Storage.GetDB(), s.sharedSync.Task.TaskID)
 	if err != nil {
 		s.sharedSync.ErrorMsg = err.Error()
 		return errors.WithStack(err)
@@ -193,7 +193,7 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 	_, err = sync.GetEvent(context.Background())
 	// master.000005, bin.000737
 	s.binlogSyncer.Close()
-	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, storage.Storage.GetDB())
+	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, storage.Storage.GetDB(), s.sharedSync.Task.TaskID)
 	return ps, err
 }
 
