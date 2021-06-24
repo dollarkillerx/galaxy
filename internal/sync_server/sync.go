@@ -2,6 +2,7 @@ package sync_server
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
+	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/dollarkillerx/go-mysql/canal"
 	"github.com/dollarkillerx/go-mysql/mysql"
@@ -52,7 +53,7 @@ func (s *Sync) Monitor() error {
 
 	s.cfg = cfg
 	var err error
-	s.binlogSyncer, err = replication.NewBinlogSyncer(cfg, s.sharedSync.Task.TaskID)
+	s.binlogSyncer, err = replication.NewBinlogSyncer(cfg, storage.Storage.GetDB())
 	if err != nil {
 		s.sharedSync.ErrorMsg = err.Error()
 		return errors.WithStack(err)
@@ -192,7 +193,7 @@ func (s *Sync) tryPosition(file string, pos uint32) (mysql.Position, error) {
 	_, err = sync.GetEvent(context.Background())
 	// master.000005, bin.000737
 	s.binlogSyncer.Close()
-	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, s.sharedSync.Task.TaskID)
+	s.binlogSyncer, err = replication.NewBinlogSyncer(s.cfg, storage.Storage.GetDB())
 	return ps, err
 }
 

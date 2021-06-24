@@ -26,6 +26,10 @@ func init() {
 	Storage = &storage{db: open}
 }
 
+func (s *storage) GetDB() *badger.DB {
+	return s.db
+}
+
 func (s *storage) SetNX(key string, value []byte, timeout time.Duration) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		ttl := badger.NewEntry([]byte(key), value)

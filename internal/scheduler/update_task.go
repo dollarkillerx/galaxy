@@ -8,10 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"context"
-	"fmt"
 	"log"
-	"os"
-	"time"
 )
 
 type StopTaskParams struct {
@@ -124,14 +121,14 @@ func (s *scheduler) deleteTask(ctx *gin.Context) {
 		log.Println(err)
 	}
 
-	go func() {
-		// 进行回收
-		time.Sleep(time.Second * 10)
-		err = os.RemoveAll(fmt.Sprintf("./galaxy_schema_%s", taskId))
-		if err != nil {
-			log.Println(err)
-		}
-	}()
+	//go func() {
+	//	// 进行回收
+	//	time.Sleep(time.Second * 10)
+	//	err = os.RemoveAll(fmt.Sprintf("./galaxy_schema_%s", taskId))
+	//	if err != nil {
+	//		log.Println(err)
+	//	}
+	//}()
 
 	ctx.JSON(200, pkg.StandardReturn{
 		Message: "DEL TASK SUCCESS: " + taskId,
