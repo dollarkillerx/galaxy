@@ -17,4 +17,12 @@ type SharedSync struct {
 	StopSync     bool               `json:"stop_sync"` // 暂停任务
 	ErrorMsg     string             `json:"error_msg"`
 	SaveShared   chan string        `json:"-"` // 更新存储
+
+	ConcurrentlyTask []*ConcurrentlyTask `json:"concurrently_task_manager"`
+}
+
+type ConcurrentlyTask struct {
+	PosName string `json:"pos_name"` // pos file name
+	Pos     uint32 `json:"pos"`      // 当前任务pos
+	Success bool   `json:"success"`  // 当前任务是否成功
 }

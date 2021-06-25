@@ -33,10 +33,11 @@ func (s *scheduler) postTask(ctx *gin.Context) {
 
 	cancel, cancelFunc := context.WithCancel(context.Background())
 	shareSync := pkg.SharedSync{
-		Task:       &task,
-		Context:    cancel,
-		Cancel:     cancelFunc,
-		SaveShared: s.saveChan,
+		Task:             &task,
+		Context:          cancel,
+		Cancel:           cancelFunc,
+		SaveShared:       s.saveChan,
+		ConcurrentlyTask: []*pkg.ConcurrentlyTask{},
 	}
 
 	// core
