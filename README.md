@@ -140,11 +140,11 @@ enum stop_type {
 
 CURL :
 ``` 
-curl --location --request POST '127.0.0.1:8089/v1/stop_task' \
+curl --location --request POST '127.0.0.1:8689/v1/stop_task' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "task_id": "task_001",
-    "stop_type":  "recovery_v1"
+    "stop_type":  "recovery_v2"
 }'
 ```
 

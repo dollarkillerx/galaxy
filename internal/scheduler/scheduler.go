@@ -54,9 +54,9 @@ loop:
 			sharedSync, ex := s.taskMap[taskID]
 			if ex {
 				{
-					sharedSync.Rw.Lock()
+					sharedSync.Rw.RLock()
 					err := storage.Storage.UpdateTask(taskID, *sharedSync) // 可能存在 内存逃逸
-					sharedSync.Rw.Unlock()
+					sharedSync.Rw.RUnlock()
 					if err != nil {
 						log.Println(err)
 					}

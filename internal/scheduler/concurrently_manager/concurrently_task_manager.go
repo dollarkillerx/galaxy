@@ -2,6 +2,7 @@ package concurrently_manager
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sort"
 	"sync"
@@ -29,7 +30,7 @@ func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskMa
 		sharedSync: sharedSync,
 	}
 
-	tm.poolFund = async_utils.NewPoolFunc(100, func() {
+	tm.poolFund = async_utils.NewPoolFunc(25, func() {
 		log.Println("Task: ", sharedSync.Task.TaskID, "Over")
 	})
 
@@ -42,6 +43,11 @@ func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskMa
 	// 初始化时 进行gc 历史数据
 	if len(tm.sharedSync.ConcurrentlyTask) != 0 {
 		tm.gc()
+
+		marshal, err := json.Marshal(tm.sharedSync.ConcurrentlyTask)
+		if err == nil {
+			fmt.Println("History Task: ", string(marshal))
+		}
 		log.Println("History Task: ", len(tm.sharedSync.ConcurrentlyTask), "   Task: ", tm.sharedSync.Task.TaskID)
 	}
 	return tm
@@ -56,7 +62,14 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 		for i := range c.sharedSync.ConcurrentlyTask {
 			c.sharedSync.ConcurrentlyTaskBack = append(c.sharedSync.ConcurrentlyTaskBack, *c.sharedSync.ConcurrentlyTask[i])
 		}
+
+		cPos := c.sharedSync.ConcurrentlyTask[len(c.sharedSync.ConcurrentlyTask)-1].Pos
+		log.Println("cPos: ", cPos, "  PositionPos: ", c.sharedSync.PositionPos)
+		if cPos > c.sharedSync.PositionPos {
+			c.sharedSync.PositionPos = cPos
+		}
 		c.PositionPosBack = c.sharedSync.PositionPos
+
 		log.Println("Pos ConcurrentlyTask Recovery", c.sharedSync.ConcurrentlyTask[0].PosName, c.sharedSync.ConcurrentlyTask[0].Pos, "   taskID: ", c.sharedSync.Task.TaskID)
 		return mysql.Position{
 			Name: c.sharedSync.ConcurrentlyTask[0].PosName,
@@ -82,9 +95,11 @@ func (c *ConcurrentlyTaskManager) SendTask(fn async_utils.PoolFunc) {
 
 // RecordStartState 记录任务开始状态
 func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	//c.mu.Lock()
+	//defer c.mu.Unlock()
 
+	c.sharedSync.Rw.Lock()
+	defer c.sharedSync.Rw.Unlock()
 	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
 		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
 
@@ -93,15 +108,22 @@ func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
 
 // MissionComplete 记录任务完毕状态
 func (c *ConcurrentlyTaskManager) MissionComplete(posName string, pos uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.sharedSync.Rw.Lock()
+	defer c.sharedSync.Rw.Unlock()
 
+	rc := true
 	for i := range c.sharedSync.ConcurrentlyTask {
 		r := c.sharedSync.ConcurrentlyTask[i]
 		if r.PosName == posName && r.Pos == pos {
 			r.Success = true
+			rc = false
+			c.sharedSync.ConcurrentlyTask[i] = r
 		}
 	}
+	if rc {
+		panic("what fuck?")
+	}
+
 	c.sharedSync.SaveShared <- c.sharedSync.Task.TaskID
 }
 
@@ -114,17 +136,24 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	// 恢复
 	for _, v := range c.sharedSync.ConcurrentlyTaskBack {
 		if v.Pos == offset {
-			return true
+			return false
 		}
 	}
 
 	// 当任务完成时 解除恢复状态
 	if offset > c.PositionPosBack {
 		c.recover = false
-		log.Println("Turn off recovery mode Enter normal sync mode")
+		c.gc()
+		//log.Println("Turn off recovery mode Enter normal sync mode  new offset: ", offset, "  back Offset: ", c.PositionPosBack)
+		//marshal, err := json.Marshal(c.sharedSync.ConcurrentlyTask)
+		//if err == nil {
+		//	fmt.Println("rr2: ", string(marshal))
+		//}
+		//os.Exit(0)
+		return false
 	}
 
-	return false
+	return true
 }
 
 // gc 处理已完成任务
@@ -140,8 +169,10 @@ func (c *ConcurrentlyTaskManager) gcManager() {
 // 处理遗留任务
 func (c *ConcurrentlyTaskManager) gc() {
 	//log.Println("ConcurrentlyTaskManager GC Task: ", c.sharedSync.Task.TaskID)
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	//c.mu.Lock()
+	//defer c.mu.Unlock()
+	c.sharedSync.Rw.Lock()
+	defer c.sharedSync.Rw.Unlock()
 
 	// 排序
 	sort.Sort(c)

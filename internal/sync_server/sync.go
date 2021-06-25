@@ -151,11 +151,52 @@ func (s *Sync) syncMySQL() error {
 			// insert del update 操作
 			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
+				schema := string(rowsEvent.Table.Schema)
+				table := string(rowsEvent.Table.Table)
+				if rowsEvent.Table == nil {
+					return nil
+				}
+
+				// 处理 table
+				var database string
+				var tables []string
+				var excludeTables []string
+				var tablesMap map[string]struct{}
+				var excludeTablesMap map[string]struct{}
+				{
+					s.sharedSync.Rw.RLock()
+
+					tables = s.sharedSync.Task.TaskBaseData.Tables
+					tablesMap = s.sharedSync.Task.TaskBaseData.TablesMap
+					excludeTables = s.sharedSync.Task.TaskBaseData.ExcludeTable
+					excludeTablesMap = s.sharedSync.Task.TaskBaseData.ExcludeTableMap
+					database = s.sharedSync.Task.TaskBaseData.Database
+
+					s.sharedSync.Rw.RUnlock()
+				}
+
+				if database != schema {
+					return nil
+				}
+				if len(tables) != 0 {
+					_, ex := tablesMap[table]
+					if !ex {
+						return nil
+					}
+				}
+				if len(excludeTables) != 0 {
+					_, ex := excludeTablesMap[table]
+					if ex {
+						return nil
+					}
+				}
+
 				// 1. 记录任务开始状态
 				s.concurrentlyTaskManager.RecordStartState(s.sharedSync.PositionName, event.Header.LogPos)
 				posName := s.sharedSync.PositionName
 				// 2. 下发任务
 				s.concurrentlyTaskManager.SendTask(func() {
+					//fmt.Println(event.Header.LogPos)
 					err := s.RowsEventProcess(action, event, rowsEvent, posName)
 					if err != nil {
 						log.Println(err)
