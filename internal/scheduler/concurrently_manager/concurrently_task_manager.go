@@ -50,6 +50,7 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 		return mysql.Position{}, false
 	} else if len(c.sharedSync.ConcurrentlyTask) != 0 {
 		c.recover = true
+		c.sharedSync.ConcurrentlyTaskBack = c.sharedSync.ConcurrentlyTask
 		log.Println("Pos ConcurrentlyTask Recovery", c.sharedSync.ConcurrentlyTask[0].PosName, c.sharedSync.ConcurrentlyTask[0].Pos, "   taskID: ", c.sharedSync.Task.TaskID)
 		return mysql.Position{
 			Name: c.sharedSync.ConcurrentlyTask[0].PosName,
@@ -75,6 +76,9 @@ func (c *ConcurrentlyTaskManager) SendTask(fn async_utils.PoolFunc) {
 
 // RecordStartState 记录任务开始状态
 func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
 		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
 
@@ -83,6 +87,9 @@ func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
 
 // MissionComplete 记录任务完毕状态
 func (c *ConcurrentlyTaskManager) MissionComplete(posName string, pos uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
 		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
 
@@ -102,7 +109,7 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	}
 
 	// 恢复
-	for _, v := range c.sharedSync.ConcurrentlyTask {
+	for _, v := range c.sharedSync.ConcurrentlyTaskBack {
 		if v.Pos == offset {
 			return true
 		}
