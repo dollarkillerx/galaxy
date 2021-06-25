@@ -80,7 +80,20 @@ loop:
 }
 
 func (k *Kafka) SendMSG(event pkg.MQEvent) error {
-	k.taskChannel <- event
+	marshal, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = k.producer.SendMessage(&sarama.ProducerMessage{
+		Topic: fmt.Sprintf("%s.%s.%s", k.cfg.TaskID, event.Database, event.Table),
+		Key:   sarama.ByteEncoder(fmt.Sprintf("%s.%s", event.Database, event.Table)),
+		Value: sarama.ByteEncoder(marshal),
+	})
+	if err != nil {
+		return err
+	}
+	//k.taskChannel <- event
 	return nil
 }
 

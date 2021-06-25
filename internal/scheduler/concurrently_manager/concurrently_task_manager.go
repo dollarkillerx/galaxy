@@ -19,6 +19,8 @@ type ConcurrentlyTaskManager struct {
 
 	recover  bool // 当前系统是否处于 恢复状态
 	poolFund *async_utils.EasyPool
+
+	PositionPosBack uint32 `json:"position_pos"`
 }
 
 func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskManager {
@@ -27,7 +29,7 @@ func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskMa
 		sharedSync: sharedSync,
 	}
 
-	tm.poolFund = async_utils.NewPoolFunc(25, func() {
+	tm.poolFund = async_utils.NewPoolFunc(100, func() {
 		log.Println("Task: ", sharedSync.Task.TaskID, "Over")
 	})
 
@@ -40,6 +42,7 @@ func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskMa
 	// 初始化时 进行gc 历史数据
 	if len(tm.sharedSync.ConcurrentlyTask) != 0 {
 		tm.gc()
+		log.Println("History Task: ", len(tm.sharedSync.ConcurrentlyTask), "   Task: ", tm.sharedSync.Task.TaskID)
 	}
 	return tm
 }
@@ -50,7 +53,10 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 		return mysql.Position{}, false
 	} else if len(c.sharedSync.ConcurrentlyTask) != 0 {
 		c.recover = true
-		c.sharedSync.ConcurrentlyTaskBack = c.sharedSync.ConcurrentlyTask
+		for i := range c.sharedSync.ConcurrentlyTask {
+			c.sharedSync.ConcurrentlyTaskBack = append(c.sharedSync.ConcurrentlyTaskBack, *c.sharedSync.ConcurrentlyTask[i])
+		}
+		c.PositionPosBack = c.sharedSync.PositionPos
 		log.Println("Pos ConcurrentlyTask Recovery", c.sharedSync.ConcurrentlyTask[0].PosName, c.sharedSync.ConcurrentlyTask[0].Pos, "   taskID: ", c.sharedSync.Task.TaskID)
 		return mysql.Position{
 			Name: c.sharedSync.ConcurrentlyTask[0].PosName,
@@ -90,9 +96,6 @@ func (c *ConcurrentlyTaskManager) MissionComplete(posName string, pos uint32) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
-		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
-
 	for i := range c.sharedSync.ConcurrentlyTask {
 		r := c.sharedSync.ConcurrentlyTask[i]
 		if r.PosName == posName && r.Pos == pos {
@@ -116,8 +119,9 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	}
 
 	// 当任务完成时 解除恢复状态
-	if offset > c.sharedSync.PositionPos {
+	if offset > c.PositionPosBack {
 		c.recover = false
+		log.Println("Turn off recovery mode Enter normal sync mode")
 	}
 
 	return false
@@ -135,7 +139,7 @@ func (c *ConcurrentlyTaskManager) gcManager() {
 
 // 处理遗留任务
 func (c *ConcurrentlyTaskManager) gc() {
-	log.Println("ConcurrentlyTaskManager GC Task: ", c.sharedSync.Task.TaskID)
+	//log.Println("ConcurrentlyTaskManager GC Task: ", c.sharedSync.Task.TaskID)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

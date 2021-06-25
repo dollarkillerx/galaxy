@@ -19,7 +19,7 @@ type SharedSync struct {
 	SaveShared   chan string        `json:"-"` // 更新存储
 
 	ConcurrentlyTask     []*ConcurrentlyTask `json:"concurrently_task_manager"`
-	ConcurrentlyTaskBack []*ConcurrentlyTask `json:"-"` // ConcurrentlyTaskBack
+	ConcurrentlyTaskBack []ConcurrentlyTask `json:"-"` // ConcurrentlyTaskBack
 }
 
 type ConcurrentlyTask struct {
