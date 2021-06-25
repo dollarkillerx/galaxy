@@ -6,6 +6,7 @@ require (
 	github.com/Shopify/sarama v1.29.0
 	github.com/arl/statsviz v0.4.0
 	github.com/dgraph-io/badger/v3 v3.2103.0
+	github.com/dollarkillerx/async_utils v0.0.4
 	github.com/dollarkillerx/go-mysql v1.4.4
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-playground/validator/v10 v10.6.1 // indirect

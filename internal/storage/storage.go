@@ -172,3 +172,11 @@ func (s *storage) GetTasks() ([]*pkg.SharedSync, error) {
 func (s *storage) DelTask(key string) error {
 	return s.Del(getTaskID(key))
 }
+
+//func (s *storage) GetConcurrentlyTaskManagerID(taskID string) string {
+//	return fmt.Sprintf("concurrently.task.manager.%s", taskID)
+//}
+//
+//func (s *storage) UpdateConcurrentlyTaskManager(taskID string, data []byte) error {
+//	return s.SetNX(s.GetConcurrentlyTaskManagerID(taskID), data, 0)
+//}

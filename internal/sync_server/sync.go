@@ -2,6 +2,7 @@ package sync_server
 
 import (
 	"github.com/dollarkillerx/galaxy/internal/mq_manager"
+	"github.com/dollarkillerx/galaxy/internal/scheduler/concurrently_manager"
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/dollarkillerx/go-mysql/canal"
@@ -21,13 +22,13 @@ import (
 
 // Sync 同步模块
 type Sync struct {
-	sharedSync   *pkg.SharedSync
-	db           *sql.DB
-	binlogSyncer *replication.BinlogSyncer
-	mq           mq_manager.MQ
-
-	sync *replication.BinlogStreamer
-	cfg  replication.BinlogSyncerConfig
+	sharedSync              *pkg.SharedSync // 数据共享 同步配置
+	db                      *sql.DB
+	binlogSyncer            *replication.BinlogSyncer
+	mq                      mq_manager.MQ
+	sync                    *replication.BinlogStreamer
+	cfg                     replication.BinlogSyncerConfig                // binlog cfg
+	concurrentlyTaskManager *concurrently_manager.ConcurrentlyTaskManager // 并发管理
 }
 
 func New(sharedSync *pkg.SharedSync) (*Sync, error) {
@@ -35,7 +36,7 @@ func New(sharedSync *pkg.SharedSync) (*Sync, error) {
 		rand.Seed(time.Now().UnixNano())
 		sharedSync.ServerID = rand.Uint32()
 	}
-	sync := &Sync{sharedSync: sharedSync}
+	sync := &Sync{sharedSync: sharedSync, concurrentlyTaskManager: concurrently_manager.InitConcurrentlyTaskManager(sharedSync)}
 
 	return sync, sync.connMysql()
 }
@@ -60,26 +61,19 @@ func (s *Sync) Monitor() error {
 	}
 
 	var pos mysql.Position
-	// 使用最新值
-	if s.sharedSync.PositionPos == 0 { // 使用最新的
+	var setPos bool // 是否使用设定值
+	pos, setPos = s.concurrentlyTaskManager.GetPos()
+	if !setPos {
+		// 使用最新值
 		pos, err = s.GetMasterPos()
 		if err != nil {
 			s.sharedSync.ErrorMsg = err.Error()
 			return err
 		}
+		s.sharedSync.PositionName = pos.Name
+		s.sharedSync.PositionPos = pos.Pos
 		fmt.Println("Latest Pos", "   taskID: ", s.sharedSync.Task.TaskID)
-	} else if s.sharedSync.PositionPos != 0 { // 使用设定值
-		pos, err = s.tryPosition(s.sharedSync.PositionName, s.sharedSync.PositionPos)
-		if err != nil {
-			s.sharedSync.ErrorMsg = err.Error()
-			return err
-		}
-
-		fmt.Println("Pos Recovery", pos.Name, pos.Pos, "   taskID: ", s.sharedSync.Task.TaskID)
 	}
-
-	s.sharedSync.PositionName = pos.Name
-	s.sharedSync.PositionPos = pos.Pos
 
 	log.Println("Start BinlogSyncer: ", pos, "   taskID: ", s.sharedSync.Task.TaskID)
 	s.sync, err = s.binlogSyncer.StartSync(pos)
@@ -108,7 +102,7 @@ func (s *Sync) Monitor() error {
 
 				break loop
 			default:
-				// 现阶段数据处理采用单线程 多线程处理需要维护许多状态点 复杂度指数级提高 未来优化
+				// 多线程 采用信号表 维护线程状态 同步 恢复
 				err := s.syncMySQL()
 				if err != nil {
 					log.Printf("id: %s err: %s \n", s.sharedSync.Task.TaskID, err.Error())
@@ -149,13 +143,25 @@ func (s *Sync) syncMySQL() error {
 				action = canal.UpdateAction
 			}
 
+			if s.concurrentlyTaskManager.Continue(event.Header.LogPos) {
+				return nil
+			}
+
+			// 多线程操作只处理 CURD 操作
 			// insert del update 操作
 			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
-				err := s.RowsEventProcess(action, event, rowsEvent)
-				if err != nil {
-					return err
-				}
+				// 1. 记录任务开始状态
+				s.concurrentlyTaskManager.RecordStartState(s.sharedSync.PositionName, event.Header.LogPos)
+				posName := s.sharedSync.PositionName
+				// 2. 下发任务
+				s.concurrentlyTaskManager.SendTask(func() {
+					err := s.RowsEventProcess(action, event, rowsEvent, posName)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+				})
 			}
 
 			// 修改模型schema 当模型schema更新时会调用当前

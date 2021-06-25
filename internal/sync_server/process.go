@@ -10,7 +10,7 @@ import (
 	"github.com/pingcap/errors"
 )
 
-func (s *Sync) RowsEventProcess(action string, event *replication.BinlogEvent, rowsEvent *replication.RowsEvent) error {
+func (s *Sync) RowsEventProcess(action string, event *replication.BinlogEvent, rowsEvent *replication.RowsEvent, posName string) error {
 	schema := string(rowsEvent.Table.Schema)
 	table := string(rowsEvent.Table.Table)
 	if rowsEvent.Table == nil {
@@ -86,8 +86,11 @@ func (s *Sync) RowsEventProcess(action string, event *replication.BinlogEvent, r
 		}
 	}
 
-	s.sharedSync.PositionPos = event.Header.LogPos
-	s.sharedSync.SaveShared <- s.sharedSync.Task.TaskID // 更新
+	if event.Header.LogPos > s.sharedSync.PositionPos {
+		s.sharedSync.PositionPos = event.Header.LogPos
+	}
+	//s.sharedSync.SaveShared <- s.sharedSync.Task.TaskID // 更新
+	s.concurrentlyTaskManager.MissionComplete(posName, event.Header.LogPos) // 记录 并更新
 	return nil
 }
 

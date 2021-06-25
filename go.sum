@@ -47,6 +47,8 @@ github.com/dgraph-io/ristretto v0.0.4-0.20210309073149-3836124cdc5a/go.mod h1:MI
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
 github.com/dollarkillerx/async_utils v0.0.3 h1:Y9MG4v+sanEobDuFrTBsPSS9Qhb9bLE2kaYoz1Q16RI=
 github.com/dollarkillerx/async_utils v0.0.3/go.mod h1:UIhezAhQHpHHtuHibhJnDSbMUtWnuxAzhxTVJebDBMM=
+github.com/dollarkillerx/async_utils v0.0.4 h1:95D/9QD1awN+NPI82/i/GmfyXOnj1xSduV9mQXnVRuw=
+github.com/dollarkillerx/async_utils v0.0.4/go.mod h1:UIhezAhQHpHHtuHibhJnDSbMUtWnuxAzhxTVJebDBMM=
 github.com/dollarkillerx/go-mysql v1.3.0 h1:lpNqkwdPzIrYSZGdqt8HIgAXZaK6VxBNfr8f7Z4FgGg=
 github.com/dollarkillerx/go-mysql v1.3.0/go.mod h1:3lFZKf7l95Qo70+3XB2WpiSf9wu2s3na3geLMaIIrqQ=
 github.com/dollarkillerx/go-mysql v1.3.1/go.mod h1:3lFZKf7l95Qo70+3XB2WpiSf9wu2s3na3geLMaIIrqQ=

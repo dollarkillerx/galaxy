@@ -16,10 +16,6 @@ import (
 // 1. 任务基础调度
 // 2. 重启任务恢复
 
-// TODO: [x] 状态持久化
-// TODO: [x] 任务恢复
-// TODO: [x] 任务多暂停模式
-
 type scheduler struct {
 	app     *gin.Engine
 	mu      sync.Mutex
@@ -39,7 +35,6 @@ func NewSchedule() *scheduler {
 func (s *scheduler) Run() error {
 	s.registerApi()
 	go s.durability()
-	// TODO： 任务恢复
 	s.taskRecovery()
 
 	log.Println("Galaxy run: ", config.Conf.ListenAddr)
