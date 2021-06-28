@@ -9,7 +9,7 @@ func (m *MongoDB) InitMQ(cfg pkg.Task) error {
 	panic("implement me")
 }
 
-func (m *MongoDB) SendMSG(event pkg.MQEvent) error {
+func (m *MongoDB) SendMSG(event []pkg.MQEvent) error {
 	panic("implement me")
 }
 

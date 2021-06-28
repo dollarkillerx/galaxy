@@ -102,7 +102,7 @@ func (s *Sync) Monitor() error {
 
 				break loop
 			default:
-				// 多线程 采用信号表 维护线程状态 同步 恢复
+				//  多线程 信号表难以维护  现阶段还是采用单线程
 				err := s.syncMySQL()
 				if err != nil {
 					log.Printf("id: %s err: %s \n", s.sharedSync.Task.TaskID, err.Error())
@@ -152,16 +152,15 @@ func (s *Sync) syncMySQL() error {
 			rowsEvent, ok := event.Event.(*replication.RowsEvent)
 			if ok {
 				// 1. 记录任务开始状态
-				s.concurrentlyTaskManager.RecordStartState(s.sharedSync.PositionName, event.Header.LogPos)
-				posName := s.sharedSync.PositionName
 				// 2. 下发任务
-				s.concurrentlyTaskManager.SendTask(func() {
-					err := s.RowsEventProcess(action, event, rowsEvent, posName)
-					if err != nil {
-						log.Println(err)
-						return
-					}
-				})
+
+				s.concurrentlyTaskManager.RecordStartState(s.sharedSync.PositionName, event.Header.LogPos)
+				err := s.RowsEventProcess(action, event, rowsEvent)
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+				s.concurrentlyTaskManager.MissionComplete(s.sharedSync.PositionName, event.Header.LogPos)
 			}
 
 			// 修改模型schema 当模型schema更新时会调用当前

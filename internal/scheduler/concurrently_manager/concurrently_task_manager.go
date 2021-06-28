@@ -1,24 +1,18 @@
 package concurrently_manager
 
 import (
-	"encoding/json"
 	"log"
-	"sort"
-	"sync"
-	"time"
 
-	"github.com/dollarkillerx/async_utils"
 	"github.com/dollarkillerx/galaxy/pkg"
 	"github.com/dollarkillerx/go-mysql/mysql"
 )
 
 // ConcurrentlyTaskManager 并发任务管理器
 type ConcurrentlyTaskManager struct {
-	mu         sync.Mutex
 	sharedSync *pkg.SharedSync
 
-	recover  bool // 当前系统是否处于 恢复状态
-	poolFund *async_utils.EasyPool
+	pos     uint32
+	recover bool // 当前系统是否处于 恢复状态
 }
 
 func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskManager {
@@ -27,19 +21,9 @@ func InitConcurrentlyTaskManager(sharedSync *pkg.SharedSync) *ConcurrentlyTaskMa
 		sharedSync: sharedSync,
 	}
 
-	tm.poolFund = async_utils.NewPoolFunc(25, func() {
-		log.Println("Task: ", sharedSync.Task.TaskID, "Over")
-	})
-
 	// 兼容老版本
 	if sharedSync.ConcurrentlyTask == nil {
 		sharedSync.ConcurrentlyTask = make([]*pkg.ConcurrentlyTask, 0)
-	}
-	go tm.gcManager()
-
-	// 初始化时 进行gc 历史数据
-	if len(tm.sharedSync.ConcurrentlyTask) != 0 {
-		tm.gc()
 	}
 	return tm
 }
@@ -50,7 +34,7 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 		return mysql.Position{}, false
 	} else if len(c.sharedSync.ConcurrentlyTask) != 0 {
 		c.recover = true
-		c.sharedSync.ConcurrentlyTaskBack = c.sharedSync.ConcurrentlyTask
+		c.pos = c.sharedSync.PositionPos
 		log.Println("Pos ConcurrentlyTask Recovery", c.sharedSync.ConcurrentlyTask[0].PosName, c.sharedSync.ConcurrentlyTask[0].Pos, "   taskID: ", c.sharedSync.Task.TaskID)
 		return mysql.Position{
 			Name: c.sharedSync.ConcurrentlyTask[0].PosName,
@@ -70,14 +54,15 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 }
 
 // SendTask 线程下发任务
-func (c *ConcurrentlyTaskManager) SendTask(fn async_utils.PoolFunc) {
-	c.poolFund.Send(fn)
-}
+//func (c *ConcurrentlyTaskManager) SendTask(fn async_utils.PoolFunc) {
+//	c.poolFund.Send(fn)
+//}
 
 // RecordStartState 记录任务开始状态
 func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if len(c.sharedSync.ConcurrentlyTask) == 2 { //  ConcurrentlyTask len max 2
+		c.sharedSync.ConcurrentlyTask = c.sharedSync.ConcurrentlyTask[1:]
+	}
 
 	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
 		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
@@ -87,9 +72,6 @@ func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
 
 // MissionComplete 记录任务完毕状态
 func (c *ConcurrentlyTaskManager) MissionComplete(posName string, pos uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
 		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
 
@@ -109,72 +91,73 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	}
 
 	// 恢复
-	for _, v := range c.sharedSync.ConcurrentlyTaskBack {
-		if v.Pos == offset {
+	for _, v := range c.sharedSync.ConcurrentlyTask {
+		// 判定是否跳过
+		if v.Pos == offset && v.Success == true {
 			return true
 		}
 	}
 
 	// 当任务完成时 解除恢复状态
-	if offset > c.sharedSync.PositionPos {
+	if offset > c.pos {
 		c.recover = false
 	}
 
 	return false
 }
 
-// gc 处理已完成任务
-func (c *ConcurrentlyTaskManager) gcManager() {
-	for {
-		select {
-		case <-time.NewTicker(time.Second * 10).C:
-			c.gc()
-		}
-	}
-}
+//// gc 处理已完成任务
+//func (c *ConcurrentlyTaskManager) gcManager() {
+//	for {
+//		select {
+//		case <-time.NewTicker(time.Second * 10).C:
+//			c.gc()
+//		}
+//	}
+//}
 
-// 处理遗留任务
-func (c *ConcurrentlyTaskManager) gc() {
-	log.Println("ConcurrentlyTaskManager GC Task: ", c.sharedSync.Task.TaskID)
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// 排序
-	sort.Sort(c)
-
-	// 构造新的tasks
-	var tasks []*pkg.ConcurrentlyTask
-	for i := range c.sharedSync.ConcurrentlyTask {
-		if !c.sharedSync.ConcurrentlyTask[i].Success {
-			tasks = append(tasks, c.sharedSync.ConcurrentlyTask[i])
-		}
-	}
-
-	oldLen := len(c.sharedSync.ConcurrentlyTask)
-	newLen := len(tasks)
-	// 当没有改变时 说明任务都在执行 无需要清洗
-	if oldLen == newLen {
-		return
-	}
-
-	// 反之更改数据 并持久化
-	c.sharedSync.ConcurrentlyTask = tasks
-
-	c.sharedSync.SaveShared <- c.sharedSync.Task.TaskID
-}
-
-func (c *ConcurrentlyTaskManager) Len() int {
-	return len(c.sharedSync.ConcurrentlyTask)
-}
-
-func (c *ConcurrentlyTaskManager) Swap(i, j int) {
-	c.sharedSync.ConcurrentlyTask[i], c.sharedSync.ConcurrentlyTask[j] = c.sharedSync.ConcurrentlyTask[j], c.sharedSync.ConcurrentlyTask[i]
-}
-
-func (c *ConcurrentlyTaskManager) Less(i, j int) bool {
-	return c.sharedSync.ConcurrentlyTask[i].Pos < c.sharedSync.ConcurrentlyTask[j].Pos
-}
-
-func (c *ConcurrentlyTaskManager) Marshal() ([]byte, error) {
-	return json.Marshal(c)
-}
+//// 处理遗留任务
+//func (c *ConcurrentlyTaskManager) gc() {
+//	log.Println("ConcurrentlyTaskManager GC Task: ", c.sharedSync.Task.TaskID)
+//	c.mu.Lock()
+//	defer c.mu.Unlock()
+//
+//	// 排序
+//	sort.Sort(c)
+//
+//	// 构造新的tasks
+//	var tasks []*pkg.ConcurrentlyTask
+//	for i := range c.sharedSync.ConcurrentlyTask {
+//		if !c.sharedSync.ConcurrentlyTask[i].Success {
+//			tasks = append(tasks, c.sharedSync.ConcurrentlyTask[i])
+//		}
+//	}
+//
+//	oldLen := len(c.sharedSync.ConcurrentlyTask)
+//	newLen := len(tasks)
+//	// 当没有改变时 说明任务都在执行 无需要清洗
+//	if oldLen == newLen {
+//		return
+//	}
+//
+//	// 反之更改数据 并持久化
+//	c.sharedSync.ConcurrentlyTask = tasks
+//
+//	c.sharedSync.SaveShared <- c.sharedSync.Task.TaskID
+//}
+//
+//func (c *ConcurrentlyTaskManager) Len() int {
+//	return len(c.sharedSync.ConcurrentlyTask)
+//}
+//
+//func (c *ConcurrentlyTaskManager) Swap(i, j int) {
+//	c.sharedSync.ConcurrentlyTask[i], c.sharedSync.ConcurrentlyTask[j] = c.sharedSync.ConcurrentlyTask[j], c.sharedSync.ConcurrentlyTask[i]
+//}
+//
+//func (c *ConcurrentlyTaskManager) Less(i, j int) bool {
+//	return c.sharedSync.ConcurrentlyTask[i].Pos < c.sharedSync.ConcurrentlyTask[j].Pos
+//}
+//
+//func (c *ConcurrentlyTaskManager) Marshal() ([]byte, error) {
+//	return json.Marshal(c)
+//}

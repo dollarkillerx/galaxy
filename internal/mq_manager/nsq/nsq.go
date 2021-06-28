@@ -9,7 +9,7 @@ func (N *NSQ) InitMQ(cfg pkg.Task) error {
 	panic("implement me")
 }
 
-func (N *NSQ) SendMSG(event pkg.MQEvent) error {
+func (N *NSQ) SendMSG(event []pkg.MQEvent) error {
 	panic("implement me")
 }
 

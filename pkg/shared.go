@@ -18,8 +18,7 @@ type SharedSync struct {
 	ErrorMsg     string             `json:"error_msg"`
 	SaveShared   chan string        `json:"-"` // 更新存储
 
-	ConcurrentlyTask     []*ConcurrentlyTask `json:"concurrently_task_manager"`
-	ConcurrentlyTaskBack []*ConcurrentlyTask `json:"-"` // ConcurrentlyTaskBack
+	ConcurrentlyTask []*ConcurrentlyTask `json:"concurrently_task_manager"` // 构成  old, new (注意 断电 消息可能重发)
 }
 
 type ConcurrentlyTask struct {
