@@ -1,6 +1,8 @@
 package concurrently_manager
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/dollarkillerx/galaxy/pkg"
@@ -34,11 +36,19 @@ func (c *ConcurrentlyTaskManager) GetPos() (mysql.Position, bool) {
 		return mysql.Position{}, false
 	} else if len(c.sharedSync.ConcurrentlyTask) != 0 {
 		c.recover = true
-		c.pos = c.sharedSync.PositionPos
-		log.Println("Pos ConcurrentlyTask Recovery", c.sharedSync.ConcurrentlyTask[0].PosName, c.sharedSync.ConcurrentlyTask[0].Pos, "   taskID: ", c.sharedSync.Task.TaskID)
+		c.pos = c.sharedSync.ConcurrentlyTask[len(c.sharedSync.ConcurrentlyTask)-1].Pos
+		c.sharedSync.ConcurrentlyTaskBack = c.sharedSync.ConcurrentlyTask
+		marshal, err := json.Marshal(c.sharedSync.ConcurrentlyTask)
+		if err == nil {
+			log.Println(string(marshal))
+			//return mysql.Position{}, false
+		}
+		pos := c.sharedSync.ConcurrentlyTask[0].Pos
+		posName := c.sharedSync.ConcurrentlyTask[0].PosName
+		log.Println("Pos ConcurrentlyTask Recovery", posName, pos, "   taskID: ", c.sharedSync.Task.TaskID)
 		return mysql.Position{
-			Name: c.sharedSync.ConcurrentlyTask[0].PosName,
-			Pos:  c.sharedSync.ConcurrentlyTask[0].Pos,
+			Name: posName,
+			Pos:  pos,
 		}, true
 	} else if c.sharedSync.PositionPos != 0 {
 		log.Println("Pos Recovery", c.sharedSync.PositionName, c.sharedSync.PositionPos, "   taskID: ", c.sharedSync.Task.TaskID)
@@ -72,8 +82,8 @@ func (c *ConcurrentlyTaskManager) RecordStartState(posName string, pos uint32) {
 
 // MissionComplete 记录任务完毕状态
 func (c *ConcurrentlyTaskManager) MissionComplete(posName string, pos uint32) {
-	c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
-		&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
+	//c.sharedSync.ConcurrentlyTask = append(c.sharedSync.ConcurrentlyTask,
+	//	&pkg.ConcurrentlyTask{PosName: posName, Pos: pos})
 
 	for i := range c.sharedSync.ConcurrentlyTask {
 		r := c.sharedSync.ConcurrentlyTask[i]
@@ -91,15 +101,18 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	}
 
 	// 恢复
-	for _, v := range c.sharedSync.ConcurrentlyTask {
+	for _, v := range c.sharedSync.ConcurrentlyTaskBack {
 		// 判定是否跳过
 		if v.Pos == offset && v.Success == true {
+			log.Println("跳过 ...............")
+			fmt.Println("Is True: ", v.Pos)
 			return true
 		}
 	}
 
 	// 当任务完成时 解除恢复状态
 	if offset > c.pos {
+		fmt.Println("Is Over: ", offset, "  pos: ", c.pos)
 		c.recover = false
 	}
 

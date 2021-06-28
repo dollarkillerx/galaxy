@@ -25,6 +25,9 @@ func (t *Task) LegalVerification() error {
 		return errors.New("database is null")
 	}
 
+	t.TablesMap = make(map[string]struct{})
+	t.ExcludeTableMap = make(map[string]struct{})
+
 	for _, v := range t.Tables {
 		t.TablesMap[v] = struct{}{}
 	}

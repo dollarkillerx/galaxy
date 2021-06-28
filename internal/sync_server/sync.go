@@ -143,6 +143,7 @@ func (s *Sync) syncMySQL() error {
 				action = canal.UpdateAction
 			}
 
+			//log.Println(event.Header.LogPos)
 			if s.concurrentlyTaskManager.Continue(event.Header.LogPos) {
 				return nil
 			}
