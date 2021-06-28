@@ -2,7 +2,6 @@ package concurrently_manager
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/dollarkillerx/galaxy/pkg"
@@ -103,20 +102,21 @@ func (c *ConcurrentlyTaskManager) Continue(offset uint32) bool {
 	// 恢复
 	for _, v := range c.sharedSync.ConcurrentlyTaskBack {
 		// 判定是否跳过
-		if v.Pos == offset && v.Success == true {
-			log.Println("跳过 ...............")
-			fmt.Println("Is True: ", v.Pos)
-			return true
+		if v.Pos == offset && v.Success == false {
+			//log.Println("跳过 ...............")
+			//fmt.Println("Is True: ", v.Pos)
+			return false
 		}
 	}
 
 	// 当任务完成时 解除恢复状态
 	if offset > c.pos {
-		fmt.Println("Is Over: ", offset, "  pos: ", c.pos)
+		//fmt.Println("Is Over: ", offset, "  pos: ", c.pos)
 		c.recover = false
+		return false
 	}
 
-	return false
+	return true
 }
 
 //// gc 处理已完成任务

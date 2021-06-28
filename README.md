@@ -157,8 +157,6 @@ CURL:
 curl --location --request POST '127.0.0.1:8689/v1/delete_task/task_001'
 ```
 
-> Warning: If you want to create the currently deleted TaskID, wait for the 11S system to recycle resource recycling
-
 ### Modify tasks
 
 HTTP: `POST /v1/update_task`
