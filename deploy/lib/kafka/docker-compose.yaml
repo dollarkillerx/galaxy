@@ -1,0 +1,29 @@
+version: '3'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: 192.168.2.200
+      KAFKA_CREATE_TOPICS: "test-top:1:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  kowl:
+    image: quay.io/cloudhut/kowl:master
+    ports:
+      - 8181:8080
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+
+
+# docker run --name zookeeper -p2181:2181 -p2888:2888 -p3888:3888 -p8080:8080 -d zookeeper:latest

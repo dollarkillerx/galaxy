@@ -53,7 +53,7 @@ mysql> GRANT SELECT, REPLICATION CLIENT, REPLICATION SLAVE ON *.* TO 'galaxy'@'l
   
 HTTP: `GET /v1/task`
 
-curl: `curl --location --request GET '127.0.0.1:8089/v1/task'`
+curl: `curl --location --request GET '127.0.0.1:8689/v1/task'`
 
 ### Issuing tasks 
 
@@ -93,7 +93,7 @@ JSON BODY:
 
 curl: 
 ``` 
-curl --location --request POST '127.0.0.1:8089/v1/post_task' \
+curl --location --request POST '127.0.0.1:8689/v1/post_task' \
 --header 'Content-Type: application/json' \
 --data-raw '{
   "task_id": "task_001", 
@@ -140,7 +140,7 @@ enum stop_type {
 
 CURL :
 ``` 
-curl --location --request POST '127.0.0.1:8089/v1/stop_task' \
+curl --location --request POST '127.0.0.1:8689/v1/stop_task' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "task_id": "task_001",
@@ -154,7 +154,7 @@ HTTP: `POST /v1/delete_task/:task_id`
 
 CURL: 
 ``` 
-curl --location --request POST '127.0.0.1:8089/v1/delete_task/task_001'
+curl --location --request POST '127.0.0.1:8689/v1/delete_task/task_001'
 ```
 
 > Warning: If you want to create the currently deleted TaskID, wait for the 11S system to recycle resource recycling
