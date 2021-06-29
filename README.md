@@ -70,8 +70,8 @@ JSON BODY:
     "port": 3307
   },
   "database": ["test"], // Listening database  default: all database
-  "tables": [],  // Listening data sheet, if len(tables) == 0 Listen to all tables under the current db
-  "exclude_table": [] , // Tables that do not listen
+  "tables": [],  // example: database.table Listening data sheet, if len(tables) == 0 Listen to all tables under the current db  
+  "exclude_table": [] , // example: database.table Tables that do not listen
   "start_time": 1624355996,  // Optional value, default only listens to the latest [This feature is very performance hungry (not recommended)]
   "kafka_conf": {  // Optional value, 
     "enable_sasl": false,

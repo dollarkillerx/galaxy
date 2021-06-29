@@ -63,7 +63,7 @@ func (t *TaskUpdate) LegalVerification() error {
 type TaskBaseData struct {
 	TaskID          string              `json:"task_id"`
 	MySqlConfig     MySQLConfig         `json:"mysql_config"`
-	Database        []string            `json:"database"`
+	Database        []string            `json:"database"`      // default: all table
 	Tables          []string            `json:"tables"`        // default: all table
 	ExcludeTable    []string            `json:"exclude_table"` // 排除表 table
 	DatabaseMap     map[string]struct{} `json:"database_map"`
