@@ -18,10 +18,11 @@ func (s *Sync) RowsEventProcess(action string, event *replication.BinlogEvent, r
 	}
 
 	// 处理 table
-	var database string
+	var database []string
 	var tables []string
 	var excludeTables []string
 	var tablesMap map[string]struct{}
+	var databaseMap map[string]struct{}
 	var excludeTablesMap map[string]struct{}
 	{
 		s.sharedSync.Rw.RLock()
@@ -31,21 +32,43 @@ func (s *Sync) RowsEventProcess(action string, event *replication.BinlogEvent, r
 		excludeTables = s.sharedSync.Task.TaskBaseData.ExcludeTable
 		excludeTablesMap = s.sharedSync.Task.TaskBaseData.ExcludeTableMap
 		database = s.sharedSync.Task.TaskBaseData.Database
+		databaseMap = s.sharedSync.Task.TaskBaseData.DatabaseMap
 
 		s.sharedSync.Rw.RUnlock()
 	}
 
-	if database != schema {
-		return nil
-	}
-	if len(tables) != 0 {
-		_, ex := tablesMap[table]
+	if len(database) != 0 {
+		_, ex := databaseMap[schema]
 		if !ex {
 			return nil
 		}
 	}
+
+	if len(tables) != 0 {
+		tabAll := fmt.Sprintf("%s.*", schema)
+		// 浅查询
+		_, ex := tablesMap[tabAll]
+		if !ex {
+			// 深度查询
+			tab := fmt.Sprintf("%s.%s", schema, table)
+			_, ex := tablesMap[tab]
+			if !ex {
+				return nil
+			}
+		}
+	}
+
 	if len(excludeTables) != 0 {
-		_, ex := excludeTablesMap[table]
+		tabAll := fmt.Sprintf("%s.*", schema)
+		// 浅查询
+		_, ex := excludeTablesMap[tabAll]
+		if ex {
+			return nil
+		}
+
+		// 深度查询
+		tab := fmt.Sprintf("%s.%s", schema, table)
+		_, ex = excludeTablesMap[tab]
 		if ex {
 			return nil
 		}
@@ -199,7 +222,10 @@ func (s *Sync) QueryEventProcess(event *replication.BinlogEvent, queryEvent *rep
 	if queryEvent.ErrorCode == 0 {
 		schema := string(queryEvent.Schema)
 		if schema != "" {
-			if schema != s.sharedSync.Task.Database {
+			databaseMap := s.sharedSync.Task.TaskBaseData.DatabaseMap
+
+			_, ex := databaseMap[schema]
+			if !ex {
 				return nil
 			}
 		}

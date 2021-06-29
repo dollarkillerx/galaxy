@@ -2,12 +2,12 @@ package sync_server
 
 import (
 	"fmt"
-	"github.com/dollarkillerx/go-mysql/mysql"
 	"log"
 	"strings"
 
 	"github.com/dollarkillerx/galaxy/internal/storage"
 	"github.com/dollarkillerx/galaxy/pkg"
+	"github.com/dollarkillerx/go-mysql/mysql"
 	"github.com/pingcap/errors"
 )
 
@@ -127,6 +127,12 @@ func (s *Sync) updateSchema(schema string, query string) (err error) {
 	}
 
 	if action == "modify" {
+		return nil
+	}
+
+	databaseMap := s.sharedSync.Task.TaskBaseData.DatabaseMap
+	_, ex := databaseMap[schema]
+	if !ex {
 		return nil
 	}
 

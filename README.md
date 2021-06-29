@@ -69,7 +69,7 @@ JSON BODY:
     "host": "192.168.88.11",
     "port": 3307
   },
-  "database": "test", // Listening database
+  "database": ["test"], // Listening database  default: all database
   "tables": [],  // Listening data sheet, if len(tables) == 0 Listen to all tables under the current db
   "exclude_table": [] , // Tables that do not listen
   "start_time": 1624355996,  // Optional value, default only listens to the latest [This feature is very performance hungry (not recommended)]
@@ -103,7 +103,7 @@ curl --location --request POST '127.0.0.1:8689/v1/post_task' \
     "host": "192.168.88.11",
     "port": 3307
   },
-  "database": "test",
+  "database": ["test"],
   "tables": [],
   "exclude_table": [] , 
   "kafka_conf": {  
@@ -165,7 +165,7 @@ JSON BODY:
 ```json
 {
     "task_id": "",   // Required
-    "database": "",  // Required
+    "database": [""],  // Required
     "tables": [],
     "exclude_table": []
 }

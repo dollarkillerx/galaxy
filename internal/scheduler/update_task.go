@@ -170,14 +170,17 @@ func (s *scheduler) updateTask(ctx *gin.Context) {
 			return
 		}
 
-		if update.Database != "" {
-			task.Task.Database = update.Database
-		}
+		task.Task.Database = update.Database
 		task.Task.Tables = update.Tables
 		task.Task.ExcludeTable = update.ExcludeTable
 
+		task.Task.DatabaseMap = map[string]struct{}{}
 		task.Task.TablesMap = map[string]struct{}{}
 		task.Task.ExcludeTableMap = map[string]struct{}{}
+
+		for _, v := range task.Task.Database {
+			task.Task.DatabaseMap[v] = struct{}{}
+		}
 
 		for _, v := range task.Task.Tables {
 			task.Task.TablesMap[v] = struct{}{}
